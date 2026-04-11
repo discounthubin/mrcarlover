@@ -50,7 +50,10 @@ self.addEventListener('fetch', e => {
       return fetch(e.request).then(response => {
         if (response && response.status === 200 && response.type === 'basic') {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+          // POST requests cache nahi hote — sirf GET cache karo
+if (e.request.method === 'GET') {
+  caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+}
         }
         return response;
       }).catch(() => caches.match('/index.html'));
