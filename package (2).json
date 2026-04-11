@@ -1,0 +1,8 @@
+{
+  "name": "mcl-tracker",
+  "version": "1.0.0",
+  "description": "Mr Car Lover Video Workflow Tracker",
+  "dependencies": {
+    "google-auth-library": "^9.14.2"
+  }
+}
