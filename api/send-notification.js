@@ -21,11 +21,21 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Private key ko sahi format mein convert karo
+    // Vercel environment variables mein \n literal hote hain — inhe real newlines mein badlo
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
+    // Remove surrounding quotes agar hain to
+    if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+      privateKey = privateKey.slice(1, -1);
+    }
+    // \n ko actual newline mein convert karo
+    privateKey = privateKey.replace(/\\n/g, '\n');
+
     // Google OAuth2 access token generate karo
     const auth = new GoogleAuth({
       credentials: {
         client_email: process.env.FIREBASE_CLIENT_EMAIL,
-        private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        private_key: privateKey,
       },
       scopes: ['https://www.googleapis.com/auth/firebase.messaging'],
     });
