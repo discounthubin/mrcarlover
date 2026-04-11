@@ -7,8 +7,8 @@ const CACHE_NAME = 'mcl-cache-v3';
 const ASSETS_TO_CACHE = [
   '/index.html',
   '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png',
+  '/android-chrome-192x192.png',
+  '/android-chrome-512x512.png',
   'https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Nunito:wght@400;600;700;800&display=swap'
 ];
 
@@ -70,8 +70,8 @@ self.addEventListener('push', e => {
   e.waitUntil(
     self.registration.showNotification(data.title || '🚗 Mr Car Lover', {
       body: data.body || '',
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      icon: '/android-chrome-192x192.png',
+      badge: '/android-chrome-192x192.png',
       tag: data.tag || 'mcl-notif',
       data: data.url || '/',
       vibrate: [200, 100, 200],
@@ -158,8 +158,8 @@ function scheduleLocalNotifications(payload) {
     setTimeout(() => {
       self.registration.showNotification(item.title, {
         body: item.body,
-        icon: '/icon-192.png',
-        badge: '/icon-192.png',
+        icon: '/android-chrome-192x192.png',
+        badge: '/android-chrome-192x192.png',
         tag: item.tag,
         vibrate: [150, 75, 150],
         requireInteraction: item.requireInteraction || false,
