@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#F43F5E">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Car Lover">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>🚗 Mr Car Lover</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<!-- ╔══════════════════════════════════════════════════╗
+     ║   FIREBASE SCRIPTS (Module)                      ║
+     ╚══════════════════════════════════════════════════╝ -->
+<script type="module">
+import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, onValue, push, serverTimestamp }
+                                from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getMessaging, getToken, onMessage }
+                                from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
+
+// ╔══════════════════════════════════════════════════╗
+// ║  CONFIG                                           ║
+// ╚══════════════════════════════════════════════════╝
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBETbUKtqBi6R9h4Z5GoB_-IiVF-vtW6zY",
+  authDomain: "private-chat-app-e6078.firebaseapp.com",
+  databaseURL: "https://private-chat-app-e6078-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "private-chat-app-e6078",
+  storageBucket: "private-chat-app-e6078.firebasestorage.app",
+  messagingSenderId: "84565477501",
+  appId: "1:84565477501:web:b776ce04fd8fc5f0b80914"
+};
+
+// ⚠️ Get this from Firebase Console → Project Settings → Cloud Messaging → Web Push Certificates
+const VAPID_KEY = "BGsB1JPC7uMQzSmIP31-9IvdAAF6AVhhCMNzU98u-bCj8YK03IQCwkLe63XeEXNHAp_xC20asdG-9cRKcUpILEE";
+
+const CORRECT_PASSWORD = "mamta";
+const DEADLINE_DAYS = 2; // Maximum days allowed per video
+
+// ── 8-Step Task List ───────────────────────────
+const TASK_LIST = [
+  { id:1, emoji:"🎬", label:"YT se Topic Lo",        sub:"Research",   color:"#FF6B6B", bg:"#FFF0F0", dark:"#C0392B" },
+  { id:2, emoji:"🤖", label:"Gemini se Script",      sub:"AI Writing", color:"#A855F7", bg:"#F5F0FF", dark:"#7C3AED" },
+  { id:3, emoji:"📹", label:"Video Shoot Karo",      sub:"On Camera",  color:"#F59E0B", bg:"#FFFBF0", dark:"#D97706" },
+  { id:4, emoji:"✏️", label:"Galtiyan Sahi Karo",    sub:"Review",     color:"#10B981", bg:"#F0FFF8", dark:"#059669" },
+  { id:5, emoji:"📥", label:"IG se Videos Download", sub:"Assets",     color:"#3B82F6", bg:"#F0F5FF", dark:"#2563EB" },
+  { id:6, emoji:"🎞️", label:"Video Editing Karo",   sub:"⚡ Max Time", color:"#F43F5E", bg:"#FFF0F3", dark:"#BE123C" },
+  { id:7, emoji:"⬆️", label:"Video Upload Karo",    sub:"Facebook",   color:"#06B6D4", bg:"#F0FEFF", dark:"#0891B2" },
+  { id:8, emoji:"📢", label:"Raat 8 Baje Publish",  sub:"Go Live!",   color:"#84CC16", bg:"#F5FFF0", dark:"#65A30D" },
+];
+
+// ── Auto System Messages (context-based) ────────
+const SYSTEM_MSGS = {
+  noVideo: [
+    "🎬 Nayi video shuru karo! Channel grow karega tabhi!",
+    "🚀 Content is King! Aaj naya video banao!",
+    "💡 Naya topic choose karo aur kaam shuru karo!",
+    "🌟 Consistency hi success ka raasta hai bhai!"
+  ],
+  day1: [
+    "🌅 Pehla din! Research aur Script aaj ready karo!",
+    "💪 Day 1 — Full energy! Aaj 4+ steps target karo!",
+    "🎯 Topic se script tak — aaj ye kaam karo!",
+    "⚡ Shuruat acha ho to video acha banta hai!"
+  ],
+  day2: [
+    "🔥 LAST DAY! Aaj editing aur upload karna hai!",
+    "⏰ Day 2 — Aaj video publish ho jaani chahiye!",
+    "⚡ Koi bahana nahi! Aaj complete karo!",
+    "🏁 Final lap! Editing pe focus karo abhi!"
+  ],
+  overdue: [
+    "🚨 DEADLINE NIKAL GAYI! Jaldi karo bhai!",
+    "⚠️ 2 din se zyada ho gaya! Aaj ZAROOR complete karo!",
+    "😤 Channel grow nahi hoga agar time pe nahi aaya!",
+    "🔴 URGENT: Video abhi tak pending hai!"
+  ],
+  halfDone: [
+    "👏 Acha progress! Ab baki kaam bhi jaldi karo!",
+    "⚡ Adha ho gaya! Momentum mat torno!",
+    "💫 Bahut acha! Ab last 4 steps pe focus!"
+  ],
+  almostDone: [
+    "🔥 Almost done! Sirf thoda bacha hai!",
+    "🏆 Bass ek-do steps aur! You're doing great!",
+    "💥 Finish karo! Aaj video publish ho sakti hai!"
+  ]
+};
+
+// ╔══════════════════════════════════════════════════╗
+// ║  FIREBASE INIT                                    ║
+// ╚══════════════════════════════════════════════════╝
+const fbApp  = initializeApp(FIREBASE_CONFIG);
+const db     = getDatabase(fbApp);
+let messaging;
+try { messaging = getMessaging(fbApp); } catch(e) { console.log("FCM not available:", e); }
+
+// ── State ──────────────────────────────────────
+let activeVideo   = null;   // current video object
+let currentTasks  = {};
+let msgInterval   = null;
+let msgIndex      = 0;
+let unsubVideos   = null;
+
+// ╔══════════════════════════════════════════════════╗
+// ║  AUTH                                             ║
+// ╚══════════════════════════════════════════════════╝
+function checkAuth() { return localStorage.getItem("mcl_v3") === btoa(CORRECT_PASSWORD); }
+
+window.submitPassword = function() {
+  const val = document.getElementById("pw-input").value.trim();
+  if (val === CORRECT_PASSWORD) {
+    localStorage.setItem("mcl_v3", btoa(CORRECT_PASSWORD));
+    showApp();
+  } else {
+    const box = document.getElementById("pw-input");
+    box.classList.add("shake");
+    document.getElementById("pw-error").style.opacity = "1";
+    box.value = "";
+    setTimeout(() => box.classList.remove("shake"), 500);
+    setTimeout(() => { document.getElementById("pw-error").style.opacity = "0"; }, 2000);
+  }
+};
+
+window.handleKey  = e => { if (e.key === "Enter") window.submitPassword(); };
+window.logout     = () => { localStorage.removeItem("mcl_v3"); location.reload(); };
+
+function showApp() {
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("app-screen").style.display  = "block";
+  initApp();
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  INIT                                             ║
+// ╚══════════════════════════════════════════════════╝
+function initApp() {
+  renderDate();
+  setupPWA();
+  setupFCM();
+  listenActiveVideo();
+  onValue(ref(db, 'videos'), snap => renderHistory(snap.val() || {}));
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  VIDEO PROJECT MANAGEMENT                         ║
+// ╚══════════════════════════════════════════════════╝
+function listenActiveVideo() {
+  onValue(ref(db, 'activeVideoId'), async snap => {
+    const videoId = snap.val();
+    if (!videoId) {
+      // No active video
+      activeVideo = null;
+      currentTasks = {};
+      showNoVideoScreen();
+      return;
+    }
+    // Listen to this video
+    if (unsubVideos) unsubVideos();
+    unsubVideos = onValue(ref(db, `videos/${videoId}`), vSnap => {
+      const video = vSnap.val();
+      if (!video) { showNoVideoScreen(); return; }
+      activeVideo   = video;
+      currentTasks  = video.tasks || {};
+      showVideoScreen(video);
+    });
+  });
+}
+
+window.startNewVideo = async function() {
+  const countSnap = await get(ref(db, 'videoCount'));
+  const count = (countSnap.val() || 0) + 1;
+  const today = new Date().toISOString().slice(0, 10);
+  const videoId = `vid_${Date.now()}`;
+
+  const newVideo = {
+    id: videoId,
+    number: count,
+    title: `Video #${count}`,
+    startDate: today,
+    startTs: Date.now(),
+    tasks: {},
+    completed: false,
+    completedDate: null,
+    completedTs: null,
+    daysToComplete: null,
+    youtubeLink: null
+  };
+
+  await set(ref(db, `videos/${videoId}`), newVideo);
+  await set(ref(db, 'activeVideoId'), videoId);
+  await set(ref(db, 'videoCount'), count);
+
+  showToast(`🎬 ${newVideo.title} shuru hua! All the best! 💪`);
+};
+
+// ╔══════════════════════════════════════════════════╗
+// ║  SCREEN SWITCHERS                                 ║
+// ╚══════════════════════════════════════════════════╝
+function showNoVideoScreen() {
+  document.getElementById("no-video-section").style.display = "flex";
+  document.getElementById("active-video-section").style.display = "none";
+  document.getElementById("all-done").style.display = "none";
+  stopMessageRotation();
+  startMessageRotation(SYSTEM_MSGS.noVideo);
+}
+
+function showVideoScreen(video) {
+  document.getElementById("no-video-section").style.display = "none";
+  document.getElementById("active-video-section").style.display = "block";
+
+  const days    = getDaysSinceStart(video.startDate);
+  const done    = Object.values(video.tasks || {}).filter(Boolean).length;
+  const total   = TASK_LIST.length;
+
+  // Update header subtitle
+  document.getElementById("video-title-label").textContent =
+    `${video.title} • Day ${days + 1}`;
+
+  // Deadline banner
+  updateDeadlineBanner(days, video.completed);
+
+  // Message rotation
+  stopMessageRotation();
+  let msgs;
+  if (video.completed)         msgs = ["🎉 Poora kaam ho gaya! Superstar! 🌟"];
+  else if (days >= DEADLINE_DAYS) msgs = SYSTEM_MSGS.overdue;
+  else if (days >= DEADLINE_DAYS - 1) msgs = SYSTEM_MSGS.day2;
+  else if (done >= 6)          msgs = SYSTEM_MSGS.almostDone;
+  else if (done >= 4)          msgs = SYSTEM_MSGS.halfDone;
+  else                         msgs = SYSTEM_MSGS.day1;
+  startMessageRotation(msgs);
+
+  renderTasks(video.tasks || {});
+  updateProgress(video.tasks || {});
+
+  // Send SW schedule
+  scheduleSWNotifications(days, video.completed);
+
+  // Check if just completed
+  if (done === total && !video.completionRewardShown) {
+    setTimeout(() => showReward(video, days), 600);
+  }
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  TASK TOGGLE                                      ║
+// ╚══════════════════════════════════════════════════╝
+window.toggleTask = async function(id) {
+  if (!activeVideo || activeVideo.completed) return;
+
+  const updated = { ...currentTasks, [id]: !(currentTasks[id] === true) };
+  await set(ref(db, `videos/${activeVideo.id}/tasks`), updated);
+
+  const done = Object.values(updated).filter(Boolean).length;
+  if (done === TASK_LIST.length) {
+    // All done! Complete the video
+    const today     = new Date().toISOString().slice(0, 10);
+    const days      = getDaysSinceStart(activeVideo.startDate);
+    await set(ref(db, `videos/${activeVideo.id}/completed`),     true);
+    await set(ref(db, `videos/${activeVideo.id}/completedDate`), today);
+    await set(ref(db, `videos/${activeVideo.id}/completedTs`),   Date.now());
+    await set(ref(db, `videos/${activeVideo.id}/daysToComplete`),days + 1);
+
+    // Clear active video (will prompt for new one via no-video screen after reward)
+    // Don't clear yet — keep it so reward can read video data, listener handles it
+    triggerFCMNotification("🎉 Video Complete!", `${activeVideo.title} ${days+1} din mein ho gaya!`);
+  }
+};
+
+// ╔══════════════════════════════════════════════════╗
+// ║  RENDER TASKS                                     ║
+// ╚══════════════════════════════════════════════════╝
+function renderTasks(tasks) {
+  const c = document.getElementById("task-container");
+  c.innerHTML = "";
+  TASK_LIST.forEach((task, i) => {
+    const done = tasks[task.id] === true;
+    const d    = document.createElement("div");
+    d.className = "task-card" + (done ? " done" : "");
+    d.style.animationDelay = (i * 0.055) + "s";
+    d.style.setProperty("--tc", task.color);
+    d.style.setProperty("--tb", task.bg);
+    d.innerHTML = `
+      <div class="task-color-bar"></div>
+      <div class="task-body">
+        <div class="task-top-row">
+          <div class="task-badge" style="background:${done ? '#E8F5E9':'var(--tb)'};color:${done ? '#2E7D32':task.color}">
+            <span class="task-emoji">${task.emoji}</span>
+            <span class="task-step">Step ${task.id}</span>
+          </div>
+          <span class="task-sub" style="color:${done ? '#aaa':task.color}">${task.sub}</span>
+        </div>
+        <div class="task-label ${done ? 'done-label':''}">${task.label}</div>
+      </div>
+      <button class="tick-btn ${done ? 'tick-done':''}"
+        onclick="window.toggleTask(${task.id})"
+        style="background:${done ? '#E8F5E9':'white'};
+               border:2.5px solid ${done ? '#4CAF50':task.color+'55'};
+               color:${done ? '#2E7D32':task.color};">
+        ${done ? '✓' : ''}
+      </button>`;
+    c.appendChild(d);
+  });
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  PROGRESS                                         ║
+// ╚══════════════════════════════════════════════════╝
+function updateProgress(tasks) {
+  const done  = Object.values(tasks).filter(Boolean).length;
+  const total = TASK_LIST.length;
+  const pct   = Math.round((done / total) * 100);
+
+  // Segmented bar
+  document.getElementById("seg-bar").innerHTML = TASK_LIST.map((t, i) => {
+    const isDone = tasks[t.id] === true;
+    return `<div class="seg" style="background:${isDone ? t.color:'#E5E7EB'};box-shadow:${isDone ? '0 0 6px '+t.color+'88':'none'}"></div>`;
+  }).join("");
+
+  document.getElementById("done-count").textContent = done;
+  document.getElementById("pct-text").textContent   = pct + "%";
+
+  const r    = 36, circ = 2 * Math.PI * r;
+  const el   = document.getElementById("ring-circle");
+  el.style.strokeDashoffset = circ - (pct / 100) * circ;
+  el.style.stroke            = pct === 100 ? "#4CAF50" : "#F43F5E";
+
+  document.getElementById("all-done").style.display = done === total ? "flex" : "none";
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  DEADLINE                                         ║
+// ╚══════════════════════════════════════════════════╝
+function getDaysSinceStart(startDate) {
+  const start = new Date(startDate + "T00:00:00");
+  const now   = new Date();
+  return Math.floor((now - start) / 86400000);
+}
+
+function updateDeadlineBanner(days, completed) {
+  const banner = document.getElementById("deadline-banner");
+  if (completed) { banner.style.display = "none"; return; }
+
+  if (days >= DEADLINE_DAYS) {
+    banner.style.display = "flex";
+    banner.className     = "deadline-banner overdue";
+    banner.innerHTML     = `<span class="dl-icon">🚨</span><div><div class="dl-title">DEADLINE NIKAL GAYI!</div><div class="dl-sub">${days} din ho gaye — Aaj ZAROOR complete karo!</div></div><div class="dl-days overdue-days">${days}d</div>`;
+  } else if (days === DEADLINE_DAYS - 1) {
+    banner.style.display = "flex";
+    banner.className     = "deadline-banner warning";
+    banner.innerHTML     = `<span class="dl-icon">⏰</span><div><div class="dl-title">LAST DAY!</div><div class="dl-sub">Aaj video complete karni hai!</div></div><div class="dl-days warning-days">Day ${days+1}</div>`;
+  } else {
+    banner.style.display = "flex";
+    banner.className     = "deadline-banner safe";
+    banner.innerHTML     = `<span class="dl-icon">📅</span><div><div class="dl-title">Day ${days+1} of ${DEADLINE_DAYS}</div><div class="dl-sub">Abhi time hai — Kaam karo!</div></div><div class="dl-days safe-days">${DEADLINE_DAYS - days}d left</div>`;
+  }
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  REWARD SYSTEM                                    ║
+// ╚══════════════════════════════════════════════════╝
+function showReward(video, daysSince) {
+  const days   = video.daysToComplete || daysSince + 1;
+  const ov     = document.getElementById("reward-overlay");
+  document.getElementById("reward-days").textContent  = days;
+  document.getElementById("reward-title").textContent = video.title || "Video";
+  ov.style.display = "flex";
+  ov.classList.add("reward-in");
+  launchConfetti();
+
+  // Mark reward shown so it doesn't repeat
+  set(ref(db, `videos/${video.id}/completionRewardShown`), true);
+}
+
+window.closeReward = function() {
+  document.getElementById("reward-overlay").style.display = "none";
+  // Show link modal
+  setTimeout(showLinkModal, 400);
+};
+
+function launchConfetti() {
+  const canvas  = document.getElementById("confetti-canvas");
+  const ctx     = canvas.getContext("2d");
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  canvas.style.display = "block";
+
+  const colors  = ["#F43F5E","#A855F7","#3B82F6","#10B981","#F59E0B","#06B6D4","#84CC16","#FB923C"];
+  const shapes  = ["rect","circle","triangle"];
+  const ptcls   = Array.from({ length: 150 }, () => ({
+    x:        Math.random() * canvas.width,
+    y:        -20 - Math.random() * 200,
+    size:     Math.random() * 10 + 4,
+    color:    colors[Math.floor(Math.random() * colors.length)],
+    shape:    shapes[Math.floor(Math.random() * shapes.length)],
+    speedX:   (Math.random() - 0.5) * 4,
+    speedY:   Math.random() * 4 + 2,
+    rotation: Math.random() * 360,
+    rotSpd:   (Math.random() - 0.5) * 12,
+    opacity:  1,
+    wobble:   Math.random() * Math.PI * 2
+  }));
+
+  let frame = 0;
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let any = false;
+    ptcls.forEach(p => {
+      if (p.y < canvas.height + 30 && p.opacity > 0) {
+        any = true;
+        p.x       += p.speedX + Math.sin(p.wobble + frame * 0.04) * 0.5;
+        p.y       += p.speedY;
+        p.rotation += p.rotSpd;
+        if (p.y > canvas.height * 0.7) p.opacity -= 0.018;
+        p.wobble += 0.05;
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.opacity);
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation * Math.PI / 180);
+        ctx.fillStyle = p.color;
+
+        if (p.shape === "rect") {
+          ctx.fillRect(-p.size/2, -p.size * 0.3, p.size, p.size * 0.6);
+        } else if (p.shape === "circle") {
+          ctx.beginPath();
+          ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(0, -p.size / 2);
+          ctx.lineTo(p.size / 2, p.size / 2);
+          ctx.lineTo(-p.size / 2, p.size / 2);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    });
+    frame++;
+    if (any) requestAnimationFrame(draw);
+    else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.style.display = "none";
+    }
+  }
+  draw();
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  YOUTUBE LINK MODAL                               ║
+// ╚══════════════════════════════════════════════════╝
+function showLinkModal() {
+  if (!activeVideo) return;
+  document.getElementById("link-modal").style.display = "flex";
+  document.getElementById("link-input").value = activeVideo.youtubeLink || "";
+  document.getElementById("link-error").textContent  = "";
+  document.getElementById("link-success").textContent = "";
+}
+
+window.closeLinkModal = function() {
+  document.getElementById("link-modal").style.display = "none";
+  // After closing modal (with or without link), clear active video → go to no-video
+  set(ref(db, 'activeVideoId'), null);
+};
+
+window.saveYouTubeLink = async function() {
+  const raw   = document.getElementById("link-input").value.trim();
+  const errEl = document.getElementById("link-error");
+  const sucEl = document.getElementById("link-success");
+  errEl.textContent = ""; sucEl.textContent = "";
+
+  if (!raw) {
+    // Skip — allow user to not add link
+    window.closeLinkModal();
+    return;
+  }
+
+  // Basic URL validation
+  if (!raw.startsWith("http")) {
+    errEl.textContent = "❌ Valid YouTube link daalo (https://...)";
+    return;
+  }
+
+  // Duplicate check
+  const linkKey = raw.replace(/[.#$[\]/]/g, "_");
+  const existing = await get(ref(db, `allLinks/${linkKey}`));
+  if (existing.val()) {
+    errEl.textContent = "⚠️ Ye link pehle se save hai! Duplicate nahi ho sakta.";
+    return;
+  }
+
+  // Save
+  await set(ref(db, `videos/${activeVideo.id}/youtubeLink`), raw);
+  await set(ref(db, `allLinks/${linkKey}`), {
+    videoId: activeVideo.id,
+    link: raw,
+    savedAt: Date.now()
+  });
+
+  sucEl.textContent = "✅ Link save ho gaya! 🎉";
+  showToast("🔗 YouTube link save ho gaya!");
+  setTimeout(() => window.closeLinkModal(), 1500);
+};
+
+// ╔══════════════════════════════════════════════════╗
+// ║  SYSTEM MESSAGES BANNER                           ║
+// ╚══════════════════════════════════════════════════╝
+function startMessageRotation(msgs) {
+  const el = document.getElementById("sys-msg-text");
+  if (!msgs || !msgs.length) return;
+
+  // Immediately show first
+  msgIndex = 0;
+  el.textContent = msgs[msgIndex];
+  el.classList.remove("msg-fade-in"); void el.offsetWidth; el.classList.add("msg-fade-in");
+
+  msgInterval = setInterval(() => {
+    el.style.opacity = "0";
+    setTimeout(() => {
+      msgIndex = (msgIndex + 1) % msgs.length;
+      el.textContent = msgs[msgIndex];
+      el.style.opacity = "1";
+    }, 400);
+  }, 5000);
+}
+
+function stopMessageRotation() {
+  if (msgInterval) { clearInterval(msgInterval); msgInterval = null; }
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  HISTORY (completed videos)                       ║
+// ╚══════════════════════════════════════════════════╝
+function renderHistory(videos) {
+  const c    = document.getElementById("history-container");
+  const keys = Object.keys(videos)
+    .filter(k => videos[k].completed)
+    .sort((a, b) => (videos[b].completedTs || 0) - (videos[a].completedTs || 0))
+    .slice(0, 20);
+
+  if (!keys.length) {
+    c.innerHTML = `<p class="no-hist">Abhi koi completed video nahi hai 📭</p>`;
+    return;
+  }
+
+  c.innerHTML = keys.map(k => {
+    const v    = videos[k];
+    const days = v.daysToComplete || "?";
+    const emoji = days === 1 ? "⚡" : days <= 2 ? "✅" : "⚠️";
+    const cls   = days <= 2 ? "h-full" : "h-part";
+    return `
+      <div class="hist-card ${cls}">
+        <div class="hist-left">
+          <span class="hist-icon">${emoji}</span>
+          <div>
+            <div class="hist-date">${v.title || 'Video'}</div>
+            <div class="hist-status">${formatDate(v.completedDate)} • ${days} din mein hua</div>
+            ${v.youtubeLink
+              ? `<a href="${v.youtubeLink}" target="_blank" class="hist-link">🔗 YouTube Link</a>`
+              : `<span class="hist-no-link">No link added</span>`}
+          </div>
+        </div>
+        <div class="hist-pct ${days <= 2 ? 'pct-full':'pct-part'}">${days}d</div>
+      </div>`;
+  }).join("");
+}
+
+function formatDate(k) {
+  if (!k) return "—";
+  const d = new Date(k + "T00:00:00");
+  const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const mo   = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${days[d.getDay()]} ${d.getDate()} ${mo[d.getMonth()]}`;
+}
+
+function renderDate() {
+  const d  = new Date();
+  const ds = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const ms = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  document.getElementById("date-label").textContent =
+    `${ds[d.getDay()]}, ${d.getDate()} ${ms[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  TOAST                                            ║
+// ╚══════════════════════════════════════════════════╝
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("toast-show");
+  setTimeout(() => t.classList.remove("toast-show"), 3200);
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  PWA + SERVICE WORKER                             ║
+// ╚══════════════════════════════════════════════════╝
+function setupPWA() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => {
+        console.log("[PWA] SW registered:", reg.scope);
+        // Listen for updates
+        reg.addEventListener('updatefound', () => {
+          const newSW = reg.installing;
+          newSW.addEventListener('statechange', () => {
+            if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+              showToast("🔄 App update available! Refresh karo.");
+            }
+          });
+        });
+      })
+      .catch(err => console.error("[PWA] SW registration failed:", err));
+
+    // Also register FCM SW
+    navigator.serviceWorker.register('/firebase-messaging-sw.js')
+      .then(r => console.log("[FCM] Messaging SW registered:", r.scope))
+      .catch(e => console.log("[FCM] Messaging SW:", e));
+  }
+
+  // Install prompt (Android add-to-homescreen)
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    window._installPrompt = e;
+    document.getElementById("install-btn").style.display = "flex";
+  });
+  window.addEventListener('appinstalled', () => {
+    document.getElementById("install-btn").style.display = "none";
+    showToast("✅ App install ho gaya! Home screen pe dekho.");
+  });
+}
+
+window.installApp = function() {
+  if (window._installPrompt) {
+    window._installPrompt.prompt();
+    window._installPrompt.userChoice.then(r => {
+      if (r.outcome === 'accepted') showToast("🎉 App install ho raha hai!");
+      window._installPrompt = null;
+      document.getElementById("install-btn").style.display = "none";
+    });
+  }
+};
+
+// ╔══════════════════════════════════════════════════╗
+// ║  FIREBASE FCM + NOTIFICATIONS                     ║
+// ╚══════════════════════════════════════════════════╝
+async function setupFCM() {
+  if (!messaging) return;
+
+  // Request notification permission
+  if (Notification.permission === "default") {
+    document.getElementById("notif-banner").style.display = "flex";
+  } else if (Notification.permission === "granted") {
+    await registerFCMToken();
+  }
+
+  // Foreground message handler
+  onMessage(messaging, payload => {
+    console.log("[FCM] Foreground message:", payload);
+    showToast(`🔔 ${payload.notification?.title || 'Notification'}: ${payload.notification?.body || ''}`);
+  });
+}
+
+window.requestNotifPermission = async function() {
+  document.getElementById("notif-banner").style.display = "none";
+  const perm = await Notification.requestPermission();
+  if (perm === "granted") {
+    showToast("🔔 Notifications ON! Aab reminders milenge!");
+    await registerFCMToken();
+  } else {
+    showToast("❌ Notifications off hain. Settings se ON karo.");
+  }
+};
+
+async function registerFCMToken() {
+  if (!messaging || VAPID_KEY === "YOUR_VAPID_KEY_HERE") return;
+  try {
+    const swReg = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
+    if (token) {
+      // Store token in Firebase so both users can see each other's tokens
+      const tokenKey = token.slice(-20); // use last 20 chars as key
+      await set(ref(db, `fcmTokens/${tokenKey}`), {
+        token,
+        updatedAt: Date.now(),
+        device: navigator.userAgent.slice(0, 60)
+      });
+      console.log("[FCM] Token registered:", token.slice(0, 20) + "...");
+    }
+  } catch(e) {
+    console.error("[FCM] Token registration failed:", e);
+  }
+}
+
+async function triggerFCMNotification(title, body) {
+  // Write to Firebase → Cloud Function picks it up and sends to all tokens
+  // See: firebase-messaging-sw.js for Cloud Function code
+  try {
+    await push(ref(db, 'notifications/pending'), {
+      title, body,
+      tag: 'mcl-trigger',
+      createdAt: Date.now(),
+      sent: false
+    });
+  } catch(e) {
+    console.log("[FCM] Could not queue notification:", e);
+  }
+}
+
+// ╔══════════════════════════════════════════════════╗
+// ║  SCHEDULED LOCAL NOTIFICATIONS (via SW)           ║
+// ╚══════════════════════════════════════════════════╝
+function scheduleSWNotifications(daysSinceStart, completed) {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.ready.then(reg => {
+    if (reg.active) {
+      reg.active.postMessage({
+        type: 'SCHEDULE_NOTIFICATIONS',
+        payload: { daysSinceStart, completed }
+      });
+    }
+  });
+}
+
+// ── DOM ready ──────────────────────────────────
+window.addEventListener("DOMContentLoaded", () => {
+  if (checkAuth()) showApp();
+  else {
+    document.getElementById("login-screen").style.display = "flex";
+    setTimeout(() => document.getElementById("pw-input").focus(), 300);
+  }
+});
+</script>
+
+<!-- ╔══════════════════════════════════════════════════╗
+     ║   STYLES                                          ║
+     ╚══════════════════════════════════════════════════╝ -->
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: #F8F9FB;
+  min-height: 100vh;
+  overscroll-behavior: none;
+}
+
+/* ════════════════════ LOGIN ═══════════════════════ */
+#login-screen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 32px 24px;
+  background: linear-gradient(160deg, #fff5f5 0%, #f0f4ff 50%, #f5fff0 100%);
+}
+.login-brand { text-align: center; margin-bottom: 40px; }
+.login-car {
+  font-size: 64px; display: block; margin-bottom: 12px;
+  animation: bounce 2s infinite ease-in-out;
+}
+@keyframes bounce {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+.login-name { font-family:'Syne',sans-serif; font-size:28px; font-weight:800; color:#1a1a2e; letter-spacing:1px; }
+.login-name span { color: #F43F5E; }
+.login-tagline { font-size:12px; color:#9CA3AF; letter-spacing:2px; text-transform:uppercase; margin-top:4px; }
+
+.login-card {
+  background: white; border-radius: 24px; padding: 32px 24px;
+  width: 100%; max-width: 360px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.08), 0 4px 16px rgba(244,63,94,0.08);
+}
+.pw-label { font-size:11px; font-weight:700; color:#9CA3AF; letter-spacing:2px; text-transform:uppercase; display:block; margin-bottom:10px; }
+#pw-input {
+  width:100%; background:#F9FAFB; border:2px solid #F3F4F6;
+  border-radius:14px; color:#1a1a2e; font-family:'Nunito',sans-serif;
+  font-size:18px; font-weight:700; padding:14px 18px;
+  outline:none; transition:border-color 0.2s,box-shadow 0.2s;
+  letter-spacing:4px; margin-bottom:14px;
+}
+#pw-input:focus { border-color:#F43F5E; box-shadow:0 0 0 4px rgba(244,63,94,0.1); }
+#pw-input.shake { animation: shake 0.4s ease; border-color:#F43F5E; }
+@keyframes shake {
+  0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)}
+  40%{transform:translateX(8px)}   60%{transform:translateX(-6px)} 80%{transform:translateX(6px)}
+}
+.login-btn {
+  width:100%; background:linear-gradient(135deg,#F43F5E,#FB7185);
+  color:white; border:none; border-radius:14px; font-family:'Syne',sans-serif;
+  font-size:16px; font-weight:700; letter-spacing:2px; padding:15px;
+  cursor:pointer; transition:transform 0.15s,box-shadow 0.15s;
+  box-shadow: 0 8px 24px rgba(244,63,94,0.3);
+}
+.login-btn:active { transform: scale(0.97); }
+#pw-error { opacity:0; transition:opacity 0.3s; margin-top:12px; text-align:center; font-size:13px; font-weight:700; color:#F43F5E; }
+
+/* ════════════════════ APP ═════════════════════════ */
+#app-screen { display:none; padding-bottom: 100px; }
+
+/* ── System Message Banner ── */
+.sys-msg-bar {
+  background: linear-gradient(135deg, #1a1a2e, #2d2d5e);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+}
+.sys-msg-icon { font-size: 16px; flex-shrink: 0; }
+#sys-msg-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: #E0E7FF;
+  flex: 1;
+  opacity: 1;
+  transition: opacity 0.4s;
+  letter-spacing: 0.2px;
+}
+.msg-fade-in { animation: fadeMsg 0.5s ease; }
+@keyframes fadeMsg { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── Notification Permission Banner ── */
+.notif-banner {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+  border-bottom: 1.5px solid #BFDBFE;
+  padding: 10px 16px;
+}
+.notif-banner-text { flex:1; font-size:12px; font-weight:700; color:#1D4ED8; }
+.notif-allow-btn {
+  background: #2563EB; color: white; border: none; border-radius: 10px;
+  font-size: 11px; font-weight: 800; padding: 7px 14px; cursor: pointer;
+  letter-spacing: 0.5px; flex-shrink: 0;
+}
+
+/* ── Install Banner ── */
+#install-btn {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #F0FFF4, #DCFCE7);
+  border-bottom: 1.5px solid #86EFAC;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+.install-text { flex:1; font-size:12px; font-weight:700; color:#15803D; }
+.install-cta {
+  background: #16A34A; color: white; border: none; border-radius: 10px;
+  font-size: 11px; font-weight: 800; padding: 7px 14px; cursor: pointer;
+}
+
+/* ── Header ── */
+.header {
+  background: white;
+  padding: 14px 20px 14px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+}
+.header-row1 {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.brand-row { display: flex; align-items: center; gap: 10px; }
+.brand-icon {
+  width:42px; height:42px;
+  background: linear-gradient(135deg,#F43F5E,#FB923C);
+  border-radius:12px; display:flex; align-items:center; justify-content:center;
+  font-size:22px; box-shadow:0 4px 12px rgba(244,63,94,0.3);
+}
+.brand-name { font-family:'Syne',sans-serif; font-size:18px; font-weight:800; color:#1a1a2e; line-height:1; }
+.brand-date { font-size:11px; color:#9CA3AF; margin-top:2px; font-weight:600; }
+
+.header-actions { display:flex; gap:8px; align-items:center; }
+.logout-btn {
+  background:#FEF2F2; border:1.5px solid #FECACA; border-radius:10px;
+  color:#F43F5E; font-size:11px; font-weight:700; padding:6px 12px;
+  cursor:pointer; letter-spacing:0.5px;
+}
+
+.progress-section { display:flex; align-items:center; gap:14px; }
+.ring-wrap { position:relative; width:56px; height:56px; flex-shrink:0; }
+.ring-wrap svg { transform:rotate(-90deg); }
+.ring-bg { fill:none; stroke:#F3F4F6; stroke-width:6; }
+#ring-circle {
+  fill:none; stroke:#F43F5E; stroke-width:6; stroke-linecap:round;
+  stroke-dasharray:226; stroke-dashoffset:226;
+  transition:stroke-dashoffset 0.6s ease,stroke 0.4s;
+}
+.ring-label { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:#1a1a2e; }
+.progress-right { flex:1; }
+.progress-counts { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+.progress-counts .big { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:#1a1a2e; }
+.progress-counts .big span { color:#9CA3AF; font-size:14px; font-weight:600; }
+#pct-text { font-size:13px; font-weight:800; color:#F43F5E; }
+#seg-bar { display:flex; gap:4px; height:8px; border-radius:99px; overflow:hidden; }
+.seg { flex:1; border-radius:99px; transition:background 0.4s ease,box-shadow 0.4s; }
+
+/* ── Deadline Banner ── */
+.deadline-banner {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 16px 0;
+  padding: 11px 14px;
+  border-radius: 14px;
+  animation: popIn 0.35s ease;
+}
+.deadline-banner.safe    { background:#F0FFF4; border:1.5px solid #86EFAC; }
+.deadline-banner.warning { background:#FFFBEB; border:1.5px solid #FCD34D; }
+.deadline-banner.overdue { background:#FFF1F2; border:1.5px solid #FDA4AF; animation: pulseRed 2s infinite; }
+@keyframes pulseRed { 0%,100%{box-shadow:none} 50%{box-shadow:0 0 12px rgba(244,63,94,0.25)} }
+
+.dl-icon { font-size:22px; flex-shrink:0; }
+.dl-title { font-size:13px; font-weight:800; }
+.deadline-banner.safe    .dl-title { color:#15803D; }
+.deadline-banner.warning .dl-title { color:#D97706; }
+.deadline-banner.overdue .dl-title { color:#BE123C; }
+.dl-sub { font-size:11px; font-weight:600; color:#6B7280; margin-top:1px; }
+.dl-days { margin-left:auto; font-family:'Syne',sans-serif; font-size:14px; font-weight:800; padding:4px 10px; border-radius:99px; flex-shrink:0; }
+.safe-days    { background:#DCFCE7; color:#15803D; }
+.warning-days { background:#FEF3C7; color:#D97706; }
+.overdue-days { background:#FFE4E6; color:#BE123C; }
+
+/* ── All Done Banner ── */
+#all-done {
+  display:none; align-items:center; justify-content:center; gap:10px;
+  background:linear-gradient(135deg,#f0fff4,#dcfce7);
+  border:1.5px solid #86EFAC; border-radius:16px;
+  margin:12px 16px 0; padding:14px 20px;
+  font-size:14px; font-weight:800; color:#15803D;
+  animation: popIn 0.4s ease;
+}
+@keyframes popIn { 0%{transform:scale(0.92);opacity:0} 100%{transform:scale(1);opacity:1} }
+
+/* ── No Video Screen ── */
+#no-video-section {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 24px 30px;
+  gap: 20px;
+}
+.no-vid-icon { font-size: 72px; animation: bounce 2.5s infinite ease-in-out; }
+.no-vid-title { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:#1a1a2e; text-align:center; }
+.no-vid-sub { font-size:14px; color:#9CA3AF; font-weight:600; text-align:center; }
+.start-video-btn {
+  background: linear-gradient(135deg, #F43F5E, #FB7185);
+  color: white; border: none; border-radius: 18px;
+  font-family:'Syne',sans-serif; font-size:17px; font-weight:800;
+  padding: 17px 36px; cursor: pointer; letter-spacing:1px;
+  box-shadow: 0 10px 30px rgba(244,63,94,0.35);
+  transition: transform 0.15s, box-shadow 0.15s;
+  animation: pulseBtn 2s infinite;
+}
+.start-video-btn:active { transform: scale(0.96); }
+@keyframes pulseBtn {
+  0%,100%{box-shadow:0 10px 30px rgba(244,63,94,0.35)}
+  50%{box-shadow:0 10px 40px rgba(244,63,94,0.55)}
+}
+
+/* ── Video Title Badge ── */
+.video-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 16px 0;
+}
+#video-title-label {
+  font-family:'Syne',sans-serif; font-size:13px; font-weight:800;
+  color: #4B5563; background: #F3F4F6; border-radius:99px;
+  padding: 4px 12px;
+}
+
+/* ── Section Head ── */
+.section-head {
+  padding: 18px 20px 10px;
+  display:flex; align-items:center; gap:8px;
+}
+.section-head-title { font-family:'Syne',sans-serif; font-size:14px; font-weight:800; color:#1a1a2e; letter-spacing:0.5px; }
+.section-head-pill {
+  background:#F43F5E; color:white; font-size:10px;
+  font-weight:800; padding:2px 8px; border-radius:99px;
+}
+
+/* ── Task Cards ── */
+#task-container { padding:0 16px; display:flex; flex-direction:column; gap:10px; }
+
+.task-card {
+  background:white; border-radius:18px; display:flex;
+  align-items:center; gap:0; overflow:hidden;
+  box-shadow:0 2px 12px rgba(0,0,0,0.06);
+  border:1.5px solid transparent;
+  animation: slideIn 0.4s ease both;
+  transition:transform 0.15s,box-shadow 0.15s;
+}
+@keyframes slideIn { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+.task-card:active { transform:scale(0.985); }
+.task-card.done { background:#FAFAFA; border-color:#E5E7EB; box-shadow:none; }
+.task-color-bar { width:5px; align-self:stretch; background:var(--tc); flex-shrink:0; transition:background 0.3s; }
+.task-card.done .task-color-bar { background:#D1FAE5; }
+.task-body { flex:1; padding:14px 12px; }
+.task-top-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; }
+.task-badge {
+  display:flex; align-items:center; gap:5px; border-radius:8px;
+  padding:3px 8px 3px 4px; font-size:11px; font-weight:800;
+  letter-spacing:0.3px; transition:all 0.3s;
+}
+.task-emoji { font-size:14px; }
+.task-step  { font-size:11px; }
+.task-sub   { font-size:11px; font-weight:700; letter-spacing:0.5px; transition:color 0.3s; }
+.task-label { font-size:15px; font-weight:800; color:#1a1a2e; line-height:1.2; transition:all 0.3s; }
+.done-label { color:#D1D5DB; text-decoration:line-through; }
+.tick-btn {
+  width:44px; height:44px; border-radius:12px; margin-right:14px;
+  font-size:20px; font-weight:800; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:transform 0.15s,box-shadow 0.15s; flex-shrink:0;
+}
+.tick-btn:active { transform:scale(0.82); }
+.tick-done { animation: tickPop 0.3s ease; }
+@keyframes tickPop { 0%{transform:scale(0.7)} 60%{transform:scale(1.2)} 100%{transform:scale(1)} }
+
+/* ── Divider ── */
+.section-divider { height:8px; background:#F3F4F6; margin-top:24px; }
+
+/* ── History ── */
+#history-container { padding:0 16px; display:flex; flex-direction:column; gap:8px; }
+.hist-card {
+  display:flex; align-items:flex-start; justify-content:space-between;
+  background:white; border-radius:14px; padding:13px 14px;
+  box-shadow:0 1px 6px rgba(0,0,0,0.05); border:1.5px solid transparent;
+}
+.h-full { border-color:#BBF7D0; }
+.h-part { border-color:#FED7AA; }
+.hist-left { display:flex; align-items:flex-start; gap:10px; }
+.hist-icon { font-size:20px; margin-top:1px; }
+.hist-date   { font-size:13px; font-weight:800; color:#1a1a2e; }
+.hist-status { font-size:11px; color:#9CA3AF; font-weight:600; margin-top:1px; }
+.hist-link {
+  display:inline-block; margin-top:5px; font-size:11px; font-weight:800;
+  color:#3B82F6; text-decoration:none; background:#EFF6FF;
+  padding:2px 8px; border-radius:6px;
+}
+.hist-link:hover { background:#DBEAFE; }
+.hist-no-link { display:inline-block; margin-top:5px; font-size:11px; color:#D1D5DB; font-weight:600; }
+.hist-pct {
+  font-family:'Syne',sans-serif; font-size:15px; font-weight:800;
+  padding:4px 10px; border-radius:8px; flex-shrink:0;
+}
+.pct-full { background:#DCFCE7; color:#15803D; }
+.pct-part { background:#FEF3C7; color:#D97706; }
+.no-hist  { color:#9CA3AF; font-size:13px; font-weight:600; padding:10px 0; }
+
+/* ── Confetti Canvas ── */
+#confetti-canvas {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  pointer-events: none;
+}
+
+/* ── Reward Overlay ── */
+#reward-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(6px);
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.reward-in { animation: rewardIn 0.5s cubic-bezier(0.175,0.885,0.32,1.275); }
+@keyframes rewardIn { from{transform:scale(0.7);opacity:0} to{transform:scale(1);opacity:1} }
+.reward-card {
+  background: white;
+  border-radius: 28px;
+  padding: 36px 28px;
+  text-align: center;
+  width: 100%;
+  max-width: 340px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.2);
+}
+.reward-trophy { font-size: 72px; margin-bottom: 8px; animation: trophySpin 1s ease; display: block; }
+@keyframes trophySpin { from{transform:rotateY(-90deg);opacity:0} to{transform:rotateY(0deg);opacity:1} }
+.reward-heading {
+  font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800;
+  color: #1a1a2e; margin-bottom: 6px;
+}
+.reward-heading span { color: #F43F5E; }
+.reward-sub { font-size: 14px; color: #6B7280; font-weight: 600; margin-bottom: 6px; }
+.reward-days-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #F43F5E, #FB7185);
+  color: white; font-family:'Syne',sans-serif;
+  font-size: 16px; font-weight: 800; padding: 8px 20px;
+  border-radius: 99px; margin: 8px 0 20px;
+  box-shadow: 0 6px 20px rgba(244,63,94,0.35);
+}
+.reward-msg {
+  font-size: 13px; color: #9CA3AF; font-weight: 600;
+  background: #F9FAFB; border-radius: 12px; padding: 10px 16px;
+  margin-bottom: 20px;
+}
+.reward-btn {
+  width: 100%; background: linear-gradient(135deg,#F43F5E,#FB7185);
+  color:white; border:none; border-radius:16px;
+  font-family:'Syne',sans-serif; font-size:15px; font-weight:800;
+  padding:15px; cursor:pointer; letter-spacing:1px;
+  box-shadow:0 8px 24px rgba(244,63,94,0.3);
+  transition:transform 0.15s;
+}
+.reward-btn:active { transform:scale(0.97); }
+
+/* ── YouTube Link Modal ── */
+#link-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(4px);
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.link-sheet {
+  background: white;
+  border-radius: 28px 28px 0 0;
+  padding: 24px 22px 36px;
+  width: 100%;
+  max-width: 480px;
+  animation: slideUp 0.35s cubic-bezier(0.25,0.85,0.45,1);
+}
+@keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+.link-handle { width:36px; height:4px; background:#E5E7EB; border-radius:99px; margin:0 auto 18px; }
+.link-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:#1a1a2e; margin-bottom:4px; }
+.link-desc  { font-size:13px; color:#9CA3AF; font-weight:600; margin-bottom:18px; }
+.link-input-wrap { position:relative; margin-bottom:10px; }
+#link-input {
+  width:100%; background:#F9FAFB; border:2px solid #F3F4F6;
+  border-radius:14px; color:#1a1a2e; font-family:'Nunito',sans-serif;
+  font-size:14px; font-weight:700; padding:14px 18px;
+  outline:none; transition:border-color 0.2s,box-shadow 0.2s;
+}
+#link-input:focus { border-color:#3B82F6; box-shadow:0 0 0 4px rgba(59,130,246,0.1); }
+#link-input::placeholder { color:#D1D5DB; font-weight:600; }
+#link-error   { font-size:12px; font-weight:700; color:#F43F5E; min-height:18px; margin-bottom:6px; }
+#link-success { font-size:12px; font-weight:700; color:#10B981; min-height:18px; margin-bottom:6px; }
+.link-btns { display:flex; gap:10px; }
+.link-save-btn {
+  flex:1; background:linear-gradient(135deg,#3B82F6,#60A5FA); color:white;
+  border:none; border-radius:14px; font-family:'Syne',sans-serif;
+  font-size:14px; font-weight:800; padding:14px; cursor:pointer;
+  box-shadow:0 6px 18px rgba(59,130,246,0.3); transition:transform 0.15s;
+}
+.link-save-btn:active { transform:scale(0.97); }
+.link-skip-btn {
+  background:#F3F4F6; color:#6B7280; border:none; border-radius:14px;
+  font-size:13px; font-weight:800; padding:14px 20px; cursor:pointer;
+}
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: #1a1a2e; color: white; font-size: 13px; font-weight: 700;
+  padding: 12px 20px; border-radius: 99px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  opacity: 0; transition: opacity 0.3s, transform 0.3s;
+  white-space: nowrap; z-index: 2000; pointer-events: none;
+  max-width: calc(100vw - 40px); text-overflow: ellipsis; overflow: hidden;
+}
+#toast.toast-show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+.reset-note {
+  text-align:center; font-size:11px; font-weight:700; color:#D1D5DB;
+  letter-spacing:1px; padding:20px 20px 0;
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     LOGIN SCREEN
+══════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-brand">
+    <span class="login-car">🚗</span>
+    <div class="login-name">Mr <span>Car</span> Lover</div>
+    <div class="login-tagline">Video Workflow Tracker</div>
+  </div>
+  <div class="login-card">
+    <label class="pw-label" for="pw-input">🔐 Password Dalo</label>
+    <input type="password" id="pw-input" placeholder="••••••••"
+      onkeydown="window.handleKey(event)" autocomplete="off"/>
+    <button class="login-btn" onclick="window.submitPassword()">ENTER ➜</button>
+    <div id="pw-error">❌ Galat password hai bhai!</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     APP SCREEN
+══════════════════════════════════════════════ -->
+<div id="app-screen">
+
+  <!-- System Message Scrolling Banner -->
+  <div class="sys-msg-bar">
+    <span class="sys-msg-icon">🤖</span>
+    <span id="sys-msg-text">Loading...</span>
+  </div>
+
+  <!-- Notification Permission Banner -->
+  <div class="notif-banner" id="notif-banner">
+    <span>🔔</span>
+    <span class="notif-banner-text">Reminders ke liye notifications ON karo!</span>
+    <button class="notif-allow-btn" onclick="window.requestNotifPermission()">Allow 🔔</button>
+  </div>
+
+  <!-- Install PWA Banner -->
+  <div id="install-btn" onclick="window.installApp()">
+    <span>📲</span>
+    <span class="install-text">App install karo — Seedha home screen pe!</span>
+    <button class="install-cta">Install</button>
+  </div>
+
+  <!-- Header with Progress -->
+  <div class="header">
+    <div class="header-row1">
+      <div class="brand-row">
+        <div class="brand-icon">🚗</div>
+        <div>
+          <div class="brand-name">Mr Car Lover</div>
+          <div class="brand-date" id="date-label"></div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="logout-btn" onclick="window.logout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- Progress Ring + Segmented Bar -->
+    <div class="progress-section">
+      <div class="ring-wrap">
+        <svg width="56" height="56" viewBox="0 0 80 80">
+          <circle class="ring-bg" cx="40" cy="40" r="36"/>
+          <circle id="ring-circle" cx="40" cy="40" r="36"/>
+        </svg>
+        <div class="ring-label" id="pct-text">0%</div>
+      </div>
+      <div class="progress-right">
+        <div class="progress-counts">
+          <div class="big"><span id="done-count">0</span><span>/8 kaam</span></div>
+        </div>
+        <div id="seg-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Video Title -->
+  <div class="video-title-row" id="video-title-row" style="display:none">
+    <span id="video-title-label"></span>
+  </div>
+
+  <!-- Deadline Warning Banner -->
+  <div id="deadline-banner" class="deadline-banner"></div>
+
+  <!-- All Done inline banner -->
+  <div id="all-done">🎉 Aaj ka poora kaam ho gaya! Superstar ho tum 🔥</div>
+
+  <!-- ── NO ACTIVE VIDEO ────────────────────────── -->
+  <div id="no-video-section">
+    <span class="no-vid-icon">🎬</span>
+    <div class="no-vid-title">Koi active video nahi hai!</div>
+    <div class="no-vid-sub">Nayi video project shuru karo aur sab kaam track karo</div>
+    <button class="start-video-btn" onclick="window.startNewVideo()">
+      ➕ Nayi Video Shuru Karo
+    </button>
+  </div>
+
+  <!-- ── ACTIVE VIDEO TASKS ─────────────────────── -->
+  <div id="active-video-section" style="display:none">
+    <div class="section-head">
+      <div class="section-head-title">Aaj Ka Workflow</div>
+      <div class="section-head-pill">8 Steps</div>
+    </div>
+    <div id="task-container"></div>
+  </div>
+
+  <!-- ── HISTORY ───────────────────────────────── -->
+  <div class="section-divider"></div>
+  <div class="section-head">
+    <div class="section-head-title">Completed Videos</div>
+  </div>
+  <div id="history-container"><p class="no-hist">Loading...</p></div>
+
+  <div class="reset-note">🕛 RAAT 12 BAJE AUTO RESET • Made with ❤️ for Mr Car Lover</div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     CONFETTI CANVAS (full-screen, pointer-through)
+══════════════════════════════════════════════ -->
+<canvas id="confetti-canvas"></canvas>
+
+<!-- ══════════════════════════════════════════════
+     REWARD OVERLAY
+══════════════════════════════════════════════ -->
+<div id="reward-overlay">
+  <div class="reward-card">
+    <span class="reward-trophy">🏆</span>
+    <div class="reward-heading">YOU DID IT! <span>🔥</span></div>
+    <div class="reward-sub" id="reward-title">Video complete hua!</div>
+    <div class="reward-days-badge">
+      ⚡ <span id="reward-days">0</span> Din Mein Complete!
+    </div>
+    <div class="reward-msg">
+      🌟 Ek aur video ka safar poora hua! Channel grow ho raha hai! Keep it up, superstar! 💪
+    </div>
+    <button class="reward-btn" onclick="window.closeReward()">
+      🔗 YouTube Link Daalo →
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     YOUTUBE LINK BOTTOM SHEET
+══════════════════════════════════════════════ -->
+<div id="link-modal">
+  <div class="link-sheet">
+    <div class="link-handle"></div>
+    <div class="link-title">📎 YouTube Link Daalo</div>
+    <div class="link-desc">Video publish hone ke baad uska YouTube / Shorts link yahan daalo</div>
+    <div class="link-input-wrap">
+      <input type="url" id="link-input" placeholder="https://youtube.com/shorts/..."
+        inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="off"/>
+    </div>
+    <div id="link-error"></div>
+    <div id="link-success"></div>
+    <div class="link-btns">
+      <button class="link-save-btn" onclick="window.saveYouTubeLink()">✅ Link Save Karo</button>
+      <button class="link-skip-btn" onclick="window.closeLinkModal()">Skip</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     TOAST NOTIFICATION
+══════════════════════════════════════════════ -->
+<div id="toast"></div>
+
+</body>
+</html>
