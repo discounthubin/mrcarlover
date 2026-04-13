@@ -424,14 +424,16 @@ window.alarmOption2 = function() {
 function playAlarmSound() {
   stopAlarmSound();
   try {
+    // ✅ Direct variable use — no regex needed
     alarmAudio = new Audio("data:audio/mp3;base64," + ALARM_MP3_B64);
     alarmAudio.loop = true;
     alarmAudio.volume = 1.0;
-    alarmAudio.play().catch(()=>{
-      // Fallback to Web Audio API beep if autoplay blocked
-      playBeepFallback();
+    alarmAudio.play().catch(() => {
+      playBeepFallback();  // autoplay block pe fallback
     });
-  } catch(e) { playBeepFallback(); }
+  } catch(e) { 
+    playBeepFallback(); 
+  }
 }
 
 let _beepCtx = null, _beepInt = null;
@@ -793,6 +795,13 @@ window.addEventListener("DOMContentLoaded",function(){
     setTimeout(()=>document.getElementById("pw-input").focus(),300);
   }
 });
+  // ── EXPOSE TO WINDOW FOR TESTING & INTERNAL USE ──
+window.showAlarmModal = showAlarmModal;
+window.checkAlarm    = checkAlarm;
+window.playAlarmSound = playAlarmSound;
+window.stopAlarmSound = stopAlarmSound;
+window.startAlarmSystem = startAlarmSystem;
+window.stopAlarmSystem  = stopAlarmSystem;
 </script>
 
 <style>
