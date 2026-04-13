@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#F43F5E">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>🚗 Mr Car Lover</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<script type="module">
+import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, onValue, push }
+                             from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getMessaging, getToken, onMessage }
+                             from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
+
+const FB = {
+  apiKey:"AIzaSyBETbUKtqBi6R9h4Z5GoB_-IiVF-vtW6zY",
+  authDomain:"private-chat-app-e6078.firebaseapp.com",
+  databaseURL:"https://private-chat-app-e6078-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"private-chat-app-e6078",
+  storageBucket:"private-chat-app-e6078.firebasestorage.app",
+  messagingSenderId:"84565477501",
+  appId:"1:84565477501:web:b776ce04fd8fc5f0b80914"
+};
+const VAPID_KEY    = "BGsB1JPC7uMQzSmIP31-9IvdAAF6AVhhCMNzU98u-bCj8YK03IQCwkLe63XeEXNHAp_xC20asdG-9cRKcUpILEE";
+const DEADLINE_DAYS = 2;
+const ALARM_HOURS   = 5;
+const SNOOZE_MIN_LO = 45;
+const SNOOZE_MIN_HI = 60;
+const WATCH_MIN     = 30;
+
+// ── DUAL USER CONFIG ─────────────────────────────────────────────────────────
+const USERS = {
+  mamtajaan: {
+    id:"mamtajaan", name:"Mamtajaan", emoji:"🚗", color:"#F43F5E",
+    noVideo:[
+      "🎬 Nayi video shuru karo! Channel grow karega tabhi!",
+      "🚀 Content is King! Aaj naya video banao bhai!",
+      "💡 Topic choose karo aur kaam shuru karo!",
+      "🌟 Consistency hi success ka raasta hai!"
+    ],
+    day1:[
+      "🌅 Pehla din! Research aur Script aaj karo!",
+      "💪 Day 1 — Full energy! 4+ steps target karo!",
+      "⚡ Shuruat acha ho to video acha banta hai!",
+      "🎯 Topic se script tak — aaj ye kaam karo!"
+    ],
+    day2:[
+      "🔥 LAST DAY! Aaj editing aur upload karna hai!",
+      "⏰ Koi bahana nahi! Aaj ZAROOR complete karo!",
+      "🏁 Final lap bhai! Editing pe focus karo abhi!",
+      "💥 Aaj video publish honi chahiye — GO GO GO!"
+    ],
+    overdue:[
+      "🚨 DEADLINE NIKAL GAYI! Jaldi karo bhai!",
+      "⚠️ 2 din se zyada ho gaya! Aaj complete karo!",
+      "🔴 URGENT: Video abhi tak pending hai!",
+      "😤 Channel grow nahi hoga aise karne se yaar!"
+    ],
+    halfDone:[
+      "👏 Acha progress! Baki kaam bhi jaldi karo!",
+      "⚡ Adha ho gaya! Momentum mat torno!",
+      "💫 Bahut acha! Ab last steps pe focus karo!"
+    ],
+    almostDone:[
+      "🔥 Almost done! Sirf thoda bacha hai!",
+      "🏆 Bass 1-2 steps aur! Great job bhai!",
+      "💥 Finish karo! Aaj publish ho sakti hai!"
+    ],
+    done:["🎉 Superstar! Poora kaam ho gaya! 🔥","🌟 Kya baat hai! Video complete! Channel grow karega!"],
+    alarmTitle:"⏰ Kaam Karo Yaar!",
+    alarmBody:"Kaafi der se kuch nahi hua — kab shuru karoge?",
+    alarmBtn1:"⏰ Kuch Min Mein Start Kar Dunga",
+    alarmBtn2:"✅ Abhi Start Kar Rha Hu",
+    snoozeToast:"Theek hai! Thodi der mein yaad dilaenge ⏰",
+    watchToast:"Best of luck! Karo shuru! 💪",
+    watchFailTitle:"😤 Kya Hua Bhai?",
+    watchFailBody:"Tune kaha tha shuru karta hun — abhi tak kuch nahi hua!",
+    taskNotifTitle:"✅ Kaam Complete!",
+    taskNotifBody:(task,done,total)=> task + " ho gaya! " + done + "/" + total + " kaam complete!"
+  },
+  mamta: {
+    id:"mamta", name:"Mamta", emoji:"💕", color:"#A855F7",
+    noVideo:[
+      "😊 Unhone abhi koi video shuru nahi ki!",
+      "📱 Nayi video ka intezaar hai? Poochho inhe!",
+      "🎬 Video project shuru nahi hua abhi tak!"
+    ],
+    day1:[
+      "🌅 Pehla din chal rha hai — kya kaam ho rha hai?",
+      "💪 Aaj kitna kaam hua? Track karo!",
+      "📊 Video progress dekho!"
+    ],
+    day2:[
+      "⏰ Aakhri din! Complete hogi video aaj?",
+      "🔥 Last day — kya hua aaj?",
+      "⚡ Aaj complete karna hai!"
+    ],
+    overdue:[
+      "🚨 2 din se zyada ho gaya! Abhi tak complete nahi!",
+      "😤 Deadline nikal gayi — kuch bolna padega inhe!",
+      "⚠️ Video kaafi time se pending hai!"
+    ],
+    halfDone:[
+      "👀 Adha kaam ho gaya! Baki bhi hoga?",
+      "📊 Progress acha hai! Dekho aage kya hua!"
+    ],
+    almostDone:[
+      "🔥 Almost complete! Bas thoda bacha!",
+      "🎯 Ek-do steps aur — hone wala hai!"
+    ],
+    done:["🎉 Video complete ho gayi! Wah! 🌟","✅ Poora kaam ho gaya! Bahut acha!"],
+    alarmTitle:"⏰ Kaam Ruka Hua Hai!",
+    alarmBody:"Kaafi der se koi kaam nahi hua. Abhi tak pura nahi kiye hain wo!",
+    alarmBtn1:"🗣️ Kah Rhi Hu Krne Ke Liye",
+    alarmBtn2:"✕ Close",
+    snoozeToast:"Theek hai! Unhe batao jaldi karo! 💪",
+    watchToast:"Dekh rhe hain — task hoga kya! 👀",
+    watchFailTitle:"❓ Koi Kaam Nahi Hua",
+    watchFailBody:"Tune kaha tha bolungi — unhone abhi tak kuch nahi kiya!",
+    taskNotifTitle:"✅ Unhone Kaam Kiya!",
+    taskNotifBody:(task,done,total)=> '"' + task + '" complete! ' + done + "/" + total + " ho gaya!"
+  }
+};
+
+const TASK_LIST = [
+  {id:1,emoji:"🎬",label:"YT se Topic Lo",        sub:"Research",   color:"#FF6B6B",bg:"#FFF0F0"},
+  {id:2,emoji:"🤖",label:"Gemini se Script",      sub:"AI Writing", color:"#A855F7",bg:"#F5F0FF"},
+  {id:3,emoji:"📹",label:"Video Shoot Karo",      sub:"On Camera",  color:"#F59E0B",bg:"#FFFBF0"},
+  {id:4,emoji:"✏️",label:"Galtiyan Sahi Karo",    sub:"Review",     color:"#10B981",bg:"#F0FFF8"},
+  {id:5,emoji:"📥",label:"IG se Videos Download", sub:"Assets",     color:"#3B82F6",bg:"#F0F5FF"},
+  {id:6,emoji:"🎞️",label:"Video Editing Karo",   sub:"⚡ Max Time", color:"#F43F5E",bg:"#FFF0F3"},
+  {id:7,emoji:"⬆️",label:"Video Upload Karo",    sub:"Facebook",   color:"#06B6D4",bg:"#F0FEFF"},
+  {id:8,emoji:"📢",label:"Raat 8 Baje Publish",  sub:"Go Live!",   color:"#84CC16",bg:"#F5FFF0"},
+];
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+const fbApp = initializeApp(FB);
+const db    = getDatabase(fbApp);
+let messaging;
+try { messaging = getMessaging(fbApp); } catch(e) {}
+
+let currentUser  = null;
+let activeVideo  = null;
+let currentTasks = {};
+let msgInterval  = null;
+let msgIndex     = 0;
+let unsubVideo   = null;
+let alarmTimer   = null;
+let ringtoneCtx  = null;
+let ringtoneInt  = null;
+let alarmTimeout = null;
+
+// ── AUTH ─────────────────────────────────────────────────────────────────────
+function checkAuth() {
+  try { return JSON.parse(atob(localStorage.getItem("mcl_user")||"")); } catch { return null; }
+}
+
+window.submitPassword = function() {
+  const val = document.getElementById("pw-input").value.trim();
+  const user = USERS[val] || null;
+  if (user) {
+    localStorage.setItem("mcl_user", btoa(JSON.stringify({id:user.id})));
+    currentUser = user;
+    showApp();
+  } else {
+    const box = document.getElementById("pw-input");
+    box.classList.add("shake");
+    document.getElementById("pw-error").style.opacity="1";
+    box.value="";
+    setTimeout(()=>box.classList.remove("shake"),500);
+    setTimeout(()=>{ document.getElementById("pw-error").style.opacity="0"; },2000);
+  }
+};
+window.handleKey = e => { if(e.key==="Enter") window.submitPassword(); };
+window.logout = () => { stopAlarmSystem(); localStorage.removeItem("mcl_user"); location.reload(); };
+
+function showApp() {
+  document.getElementById("login-screen").style.display="none";
+  document.getElementById("app-screen").style.display="block";
+  const badge = document.getElementById("user-badge");
+  badge.textContent = currentUser.emoji+" "+currentUser.name;
+  badge.style.cssText = "background:"+currentUser.color+"22;color:"+currentUser.color+";border:1.5px solid "+currentUser.color+"44;font-size:11px;font-weight:800;padding:5px 12px;border-radius:99px;";
+  initApp();
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+function initApp() {
+  renderDate();
+  setupPWA();
+  setupFCM();
+  listenActiveVideo();
+  onValue(ref(db,"videos"), snap => renderHistory(snap.val()||{}));
+  startAlarmSystem();
+}
+
+// ── VIDEO MANAGEMENT ─────────────────────────────────────────────────────────
+function listenActiveVideo() {
+  onValue(ref(db,"activeVideoId"), async snap => {
+    const vid = snap.val();
+    if (!vid) { activeVideo=null; currentTasks={}; showNoVideoScreen(); return; }
+    if (unsubVideo) unsubVideo();
+    unsubVideo = onValue(ref(db,"videos/"+vid), vSnap => {
+      const v = vSnap.val();
+      if (!v) { showNoVideoScreen(); return; }
+      activeVideo=v; currentTasks=v.tasks||{};
+      showVideoScreen(v);
+    });
+  });
+}
+
+window.startNewVideo = async function() {
+  const cs   = await get(ref(db,"videoCount"));
+  const count= (cs.val()||0)+1;
+  const today= new Date().toISOString().slice(0,10);
+  const vid  = "vid_"+Date.now();
+  const v    = {id:vid,number:count,title:"Video #"+count,startDate:today,startTs:Date.now(),
+                tasks:{},taskTimes:{},completed:false,completedDate:null,completedTs:null,
+                daysToComplete:null,youtubeLink:null};
+  await set(ref(db,"videos/"+vid),v);
+  await set(ref(db,"activeVideoId"),vid);
+  await set(ref(db,"videoCount"),count);
+  showToast("🎬 "+v.title+" shuru hua! All the best! 💪");
+};
+
+// ── SCREEN SWITCHERS ─────────────────────────────────────────────────────────
+function showNoVideoScreen() {
+  document.getElementById("no-video-section").style.display="flex";
+  document.getElementById("active-video-section").style.display="none";
+  document.getElementById("all-done").style.display="none";
+  stopMessageRotation();
+  startMessageRotation(currentUser.noVideo);
+}
+
+function showVideoScreen(video) {
+  document.getElementById("no-video-section").style.display="none";
+  document.getElementById("active-video-section").style.display="block";
+  const days = getDaysSinceStart(video.startDate);
+  const done = Object.values(video.tasks||{}).filter(Boolean).length;
+  document.getElementById("video-title-label").textContent=video.title+" • Day "+(days+1);
+  updateDeadlineBanner(days, video.completed);
+  stopMessageRotation();
+  let msgs;
+  if (video.completed)               msgs = currentUser.done;
+  else if (days>=DEADLINE_DAYS)      msgs = currentUser.overdue;
+  else if (days===DEADLINE_DAYS-1)   msgs = currentUser.day2;
+  else if (done>=6 && currentUser.almostDone) msgs = currentUser.almostDone;
+  else if (done>=4 && currentUser.halfDone)   msgs = currentUser.halfDone;
+  else                               msgs = currentUser.day1;
+  startMessageRotation(msgs);
+  renderTasks(video.tasks||{});
+  updateProgress(video.tasks||{});
+  scheduleSWNotifications(days, video.completed);
+  if (done===TASK_LIST.length && !video.completionRewardShown)
+    setTimeout(()=>showReward(video,days),600);
+}
+
+// ── TASK TOGGLE ──────────────────────────────────────────────────────────────
+window.toggleTask = async function(id) {
+  if (!activeVideo||activeVideo.completed) return;
+  const wasOn = currentTasks[id]===true;
+  const updated = Object.assign({},currentTasks,{[id]:!wasOn});
+  const now = Date.now();
+  await set(ref(db,"videos/"+activeVideo.id+"/tasks"),updated);
+  if (!wasOn) {
+    await set(ref(db,"videos/"+activeVideo.id+"/taskTimes/"+id),now);
+    localStorage.setItem("lastTaskTime",now.toString());
+    localStorage.removeItem("alarmSnoozedUntil");
+    localStorage.removeItem("watchModeStart");
+  } else {
+    await set(ref(db,"videos/"+activeVideo.id+"/taskTimes/"+id),null);
+  }
+  const done = Object.values(updated).filter(Boolean).length;
+  const task = TASK_LIST.find(t=>t.id===id);
+  if (!wasOn && task) {
+    const otherId = currentUser.id==="mamtajaan"?"mamta":"mamtajaan";
+    await sendTargetedNotification(otherId,
+      currentUser.taskNotifTitle,
+      currentUser.taskNotifBody(task.label,done,TASK_LIST.length));
+  }
+  maybeProgressNotification(done);
+  if (done===TASK_LIST.length) {
+    const today = new Date().toISOString().slice(0,10);
+    const days  = getDaysSinceStart(activeVideo.startDate);
+    await set(ref(db,"videos/"+activeVideo.id+"/completed"),true);
+    await set(ref(db,"videos/"+activeVideo.id+"/completedDate"),today);
+    await set(ref(db,"videos/"+activeVideo.id+"/completedTs"),Date.now());
+    await set(ref(db,"videos/"+activeVideo.id+"/daysToComplete"),days+1);
+    await triggerFCMAll("🎉 Video Complete!",activeVideo.title+" — "+(days+1)+" din mein poora hua! 🏆");
+  }
+};
+
+// ── 5-HOUR ALARM SYSTEM ──────────────────────────────────────────────────────
+function startAlarmSystem() {
+  if (alarmTimer) clearInterval(alarmTimer);
+  alarmTimer = setInterval(checkAlarm,5*60*1000);
+  setTimeout(checkAlarm,30000);
+}
+function stopAlarmSystem() {
+  if(alarmTimer){clearInterval(alarmTimer);alarmTimer=null;}
+  stopRingtone();
+}
+
+function checkAlarm() {
+  if (!activeVideo||activeVideo.completed) return;
+  const done = Object.values(currentTasks).filter(Boolean).length;
+  if (done===TASK_LIST.length) return;
+  const now = Date.now();
+  const snoozedUntil = parseInt(localStorage.getItem("alarmSnoozedUntil")||"0");
+  if (now<snoozedUntil) return;
+  const watchStart = parseInt(localStorage.getItem("watchModeStart")||"0");
+  if (watchStart) {
+    if (now-watchStart < WATCH_MIN*60*1000) return;
+    const lastTask = parseInt(localStorage.getItem("lastTaskTime")||"0");
+    if (lastTask<watchStart) {
+      triggerFCMAll(currentUser.watchFailTitle,currentUser.watchFailBody);
+      showToast("😤 "+currentUser.watchFailTitle);
+    }
+    localStorage.removeItem("watchModeStart"); return;
+  }
+  const taskTimes   = (activeVideo.taskTimes)||{};
+  const doneTimes   = TASK_LIST.filter(t=>currentTasks[t.id]).map(t=>taskTimes[t.id]||0).filter(Boolean);
+  const lastAct     = doneTimes.length>0?Math.max(...doneTimes):activeVideo.startTs;
+  const overrideTs  = parseInt(localStorage.getItem("lastTaskTime")||"0");
+  const effectiveLast = Math.max(lastAct,overrideTs);
+  const hoursIdle   = (now-effectiveLast)/(1000*60*60);
+  if (hoursIdle>=ALARM_HOURS) showAlarmModal();
+}
+
+function showAlarmModal() {
+  const done    = Object.values(currentTasks).filter(Boolean).length;
+  const pending = TASK_LIST.length-done;
+  const nextTask= TASK_LIST.find(t=>!currentTasks[t.id]);
+  document.getElementById("alarm-title").textContent  = currentUser.alarmTitle;
+  document.getElementById("alarm-body").textContent   = currentUser.alarmBody;
+  document.getElementById("alarm-pending").textContent= pending+" kaam baaki hain ⚠️";
+  document.getElementById("alarm-next").textContent   = nextTask?"Agla: "+nextTask.emoji+" "+nextTask.label:"";
+  document.getElementById("alarm-btn1").textContent   = currentUser.alarmBtn1;
+  document.getElementById("alarm-btn2").textContent   = currentUser.alarmBtn2;
+  document.getElementById("alarm-modal").style.display="flex";
+  playRingtone();
+  if(navigator.vibrate) navigator.vibrate([500,200,500,200,500,200,500,200,500]);
+  alarmTimeout = setTimeout(()=>stopRingtone(),2*60*1000);
+}
+
+window.alarmOption1 = function() {
+  stopRingtone(); if(alarmTimeout)clearTimeout(alarmTimeout);
+  document.getElementById("alarm-modal").style.display="none";
+  const snoozeMs = (SNOOZE_MIN_LO+Math.floor(Math.random()*(SNOOZE_MIN_HI-SNOOZE_MIN_LO)))*60*1000;
+  localStorage.setItem("alarmSnoozedUntil",(Date.now()+snoozeMs).toString());
+  showToast(currentUser.snoozeToast);
+  setTimeout(()=>triggerFCMAll(currentUser.alarmTitle,"Yaad hai? Kaam shuru karna tha! Karo abhi! 💪"),snoozeMs);
+};
+
+window.alarmOption2 = function() {
+  stopRingtone(); if(alarmTimeout)clearTimeout(alarmTimeout);
+  document.getElementById("alarm-modal").style.display="none";
+  localStorage.setItem("watchModeStart",Date.now().toString());
+  showToast(currentUser.watchToast);
+  const otherId = currentUser.id==="mamtajaan"?"mamta":"mamtajaan";
+  sendTargetedNotification(otherId,"💪 Kaam Shuru Ho Rha!","Abhi kaam shuru ho rha hai!");
+};
+
+// ── RINGTONE ─────────────────────────────────────────────────────────────────
+function playRingtone() {
+  stopRingtone();
+  try {
+    ringtoneCtx = new (window.AudioContext||window.webkitAudioContext)();
+    function ring() {
+      if(!ringtoneCtx) return;
+      const ctx=ringtoneCtx, now=ctx.currentTime;
+      [[880,0],[660,0.18],[880,0.36],[660,0.54]].forEach(function(pair){
+        const freq=pair[0], offset=pair[1];
+        const osc=ctx.createOscillator(), gain=ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type="sine"; osc.frequency.value=freq;
+        gain.gain.setValueAtTime(0,now+offset);
+        gain.gain.linearRampToValueAtTime(0.3,now+offset+0.04);
+        gain.gain.setValueAtTime(0.3,now+offset+0.12);
+        gain.gain.linearRampToValueAtTime(0,now+offset+0.16);
+        osc.start(now+offset); osc.stop(now+offset+0.2);
+      });
+    }
+    ring(); ringtoneInt=setInterval(ring,1600);
+  } catch(e){}
+}
+function stopRingtone(){
+  if(ringtoneInt){clearInterval(ringtoneInt);ringtoneInt=null;}
+  if(ringtoneCtx){try{ringtoneCtx.close();}catch(e){}ringtoneCtx=null;}
+}
+
+// ── SMART NOTIFICATIONS ──────────────────────────────────────────────────────
+async function maybeProgressNotification(done) {
+  const now=Date.now(), today=new Date().toISOString().slice(0,10);
+  const lastDay=localStorage.getItem("notifDay")||"";
+  let sentToday=parseInt(localStorage.getItem("notifCount")||"0");
+  const lastSent=parseInt(localStorage.getItem("lastNotifTime")||"0");
+  if (lastDay!==today){sentToday=0;localStorage.setItem("notifDay",today);localStorage.setItem("notifCount","0");}
+  if (sentToday>=4) return;
+  if (now-lastSent<2*60*60*1000) return;
+  const total=TASK_LIST.length, pending=total-done;
+  if (pending===0) return;
+  if (![2,4,6].includes(done)) return;
+  await triggerFCMAll("📊 Progress Update",done+"/"+total+" kaam complete! "+pending+" baaki hain — chalo karo! 💪");
+  localStorage.setItem("lastNotifTime",now.toString());
+  localStorage.setItem("notifCount",(sentToday+1).toString());
+}
+
+async function triggerFCMAll(title,body) {
+  try {
+    const snap=await get(ref(db,"fcmTokens"));
+    const tokens=Object.values(snap.val()||{}).map(t=>t.token).filter(Boolean);
+    if(!tokens.length) return;
+    await fetch("/api/send-notification",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({tokens,title,body})});
+  } catch(e){}
+}
+
+async function sendTargetedNotification(targetUserId,title,body) {
+  try {
+    const snap=await get(ref(db,"fcmTokens"));
+    const all=snap.val()||{};
+    const tokens=Object.values(all).filter(t=>t.userId===targetUserId&&t.token).map(t=>t.token);
+    if(!tokens.length){await triggerFCMAll(title,body);return;}
+    await fetch("/api/send-notification",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({tokens,title,body})});
+  } catch(e){}
+}
+
+// ── RENDER TASKS ─────────────────────────────────────────────────────────────
+function renderTasks(tasks) {
+  const c=document.getElementById("task-container");
+  c.innerHTML="";
+  const taskTimes=(activeVideo&&activeVideo.taskTimes)||{};
+  TASK_LIST.forEach(function(task,i){
+    const done=tasks[task.id]===true;
+    const ts=done&&taskTimes[task.id]?formatTime(taskTimes[task.id]):null;
+    const d=document.createElement("div");
+    d.className="task-card"+(done?" done":"");
+    d.style.animationDelay=(i*0.055)+"s";
+    d.style.setProperty("--tc",task.color);
+    d.style.setProperty("--tb",task.bg);
+    d.innerHTML=
+      '<div class="task-color-bar"></div>'+
+      '<div class="task-body">'+
+        '<div class="task-top-row">'+
+          '<div class="task-badge" style="background:'+(done?"#E8F5E9":"var(--tb)")+';color:'+(done?"#2E7D32":task.color)+'">'+
+            '<span class="task-emoji">'+task.emoji+'</span>'+
+            '<span class="task-step">Step '+task.id+'</span>'+
+          '</div>'+
+          '<span class="task-sub" style="color:'+(done?"#aaa":task.color)+'">'+task.sub+'</span>'+
+        '</div>'+
+        '<div class="task-label'+(done?" done-label":"")+'">'+task.label+'</div>'+
+        (ts?'<div class="task-time">✓ '+ts+' pe kiya</div>':'')+
+      '</div>'+
+      '<button class="tick-btn'+(done?" tick-done":"") +'"'+
+        ' onclick="window.toggleTask('+task.id+')"'+
+        ' style="background:'+(done?"#E8F5E9":"white")+
+        ';border:2.5px solid '+(done?"#4CAF50":task.color+"55")+
+        ';color:'+(done?"#2E7D32":task.color)+';">'+
+        (done?"✓":"")+
+      '</button>';
+    c.appendChild(d);
+  });
+}
+
+function formatTime(ts){
+  const d=new Date(ts);
+  let h=d.getHours(),m=d.getMinutes();
+  const ampm=h>=12?"PM":"AM";
+  h=h%12||12;
+  return h+":"+(m<10?"0":"")+m+" "+ampm;
+}
+
+// ── PROGRESS ─────────────────────────────────────────────────────────────────
+function updateProgress(tasks){
+  const done=Object.values(tasks).filter(Boolean).length;
+  const total=TASK_LIST.length,pct=Math.round((done/total)*100);
+  document.getElementById("seg-bar").innerHTML=TASK_LIST.map(t=>{
+    const isDone=tasks[t.id]===true;
+    return '<div class="seg" style="background:'+(isDone?t.color:"#E5E7EB")+';box-shadow:'+(isDone?"0 0 6px "+t.color+"88":"none")+'"></div>';
+  }).join("");
+  document.getElementById("done-count").textContent=done;
+  document.getElementById("pct-text").textContent=pct+"%";
+  const r=36,circ=2*Math.PI*r;
+  const el=document.getElementById("ring-circle");
+  el.style.strokeDashoffset=circ-(pct/100)*circ;
+  el.style.stroke=pct===100?"#4CAF50":"#F43F5E";
+  document.getElementById("all-done").style.display=done===total?"flex":"none";
+}
+
+// ── DEADLINE ─────────────────────────────────────────────────────────────────
+function getDaysSinceStart(startDate){
+  return Math.floor((Date.now()-new Date(startDate+"T00:00:00"))/86400000);
+}
+function updateDeadlineBanner(days,completed){
+  const b=document.getElementById("deadline-banner");
+  if(completed){b.style.display="none";return;}
+  if(days>=DEADLINE_DAYS){
+    b.style.display="flex";b.className="deadline-banner overdue";
+    b.innerHTML='<span class="dl-icon">🚨</span><div><div class="dl-title">DEADLINE NIKAL GAYI!</div><div class="dl-sub">'+days+' din ho gaye!</div></div><div class="dl-days overdue-days">'+days+'d</div>';
+  } else if(days===DEADLINE_DAYS-1){
+    b.style.display="flex";b.className="deadline-banner warning";
+    b.innerHTML='<span class="dl-icon">⏰</span><div><div class="dl-title">LAST DAY!</div><div class="dl-sub">Aaj complete karni hai!</div></div><div class="dl-days warning-days">Day '+(days+1)+'</div>';
+  } else {
+    b.style.display="flex";b.className="deadline-banner safe";
+    b.innerHTML='<span class="dl-icon">📅</span><div><div class="dl-title">Day '+(days+1)+' of '+DEADLINE_DAYS+'</div><div class="dl-sub">Kaam karo!</div></div><div class="dl-days safe-days">'+(DEADLINE_DAYS-days)+'d left</div>';
+  }
+}
+
+// ── REWARD ───────────────────────────────────────────────────────────────────
+function showReward(video,daysSince){
+  const days=video.daysToComplete||daysSince+1;
+  document.getElementById("reward-days").textContent=days;
+  document.getElementById("reward-title").textContent=video.title||"Video";
+  const ov=document.getElementById("reward-overlay");
+  ov.style.display="flex";ov.classList.add("reward-in");
+  launchConfetti();
+  set(ref(db,"videos/"+video.id+"/completionRewardShown"),true);
+}
+window.closeReward=function(){
+  document.getElementById("reward-overlay").style.display="none";
+  setTimeout(showLinkModal,400);
+};
+function launchConfetti(){
+  const canvas=document.getElementById("confetti-canvas"),ctx=canvas.getContext("2d");
+  canvas.width=window.innerWidth;canvas.height=window.innerHeight;canvas.style.display="block";
+  const colors=["#F43F5E","#A855F7","#3B82F6","#10B981","#F59E0B","#06B6D4","#84CC16","#FB923C"];
+  const ptcls=[];
+  for(let i=0;i<120;i++) ptcls.push({x:Math.random()*canvas.width,y:-20-Math.random()*200,
+    size:Math.random()*10+4,color:colors[Math.floor(Math.random()*colors.length)],
+    speedX:(Math.random()-.5)*4,speedY:Math.random()*4+2,rotation:Math.random()*360,
+    rotSpd:(Math.random()-.5)*12,opacity:1,wobble:Math.random()*Math.PI*2});
+  let frame=0;
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);let any=false;
+    ptcls.forEach(function(p){
+      if(p.y<canvas.height+30&&p.opacity>0){any=true;
+        p.x+=p.speedX+Math.sin(p.wobble+frame*.04)*.5;p.y+=p.speedY;
+        p.rotation+=p.rotSpd;if(p.y>canvas.height*.7)p.opacity-=.018;p.wobble+=.05;
+        ctx.save();ctx.globalAlpha=Math.max(0,p.opacity);ctx.translate(p.x,p.y);
+        ctx.rotate(p.rotation*Math.PI/180);ctx.fillStyle=p.color;
+        ctx.fillRect(-p.size/2,-p.size*.3,p.size,p.size*.6);ctx.restore();}
+    });
+    frame++;if(any)requestAnimationFrame(draw);
+    else{ctx.clearRect(0,0,canvas.width,canvas.height);canvas.style.display="none";}
+  }
+  draw();
+}
+
+// ── YOUTUBE LINK ──────────────────────────────────────────────────────────────
+function showLinkModal(){
+  if(!activeVideo)return;
+  document.getElementById("link-modal").style.display="flex";
+  document.getElementById("link-input").value=activeVideo.youtubeLink||"";
+  document.getElementById("link-error").textContent="";
+  document.getElementById("link-success").textContent="";
+}
+window.closeLinkModal=function(){
+  document.getElementById("link-modal").style.display="none";
+  set(ref(db,"activeVideoId"),null);
+};
+window.saveYouTubeLink=async function(){
+  const raw=document.getElementById("link-input").value.trim();
+  const errEl=document.getElementById("link-error"),sucEl=document.getElementById("link-success");
+  errEl.textContent="";sucEl.textContent="";
+  if(!raw){window.closeLinkModal();return;}
+  if(!raw.startsWith("http")){errEl.textContent="❌ Valid link daalo (https://...)";return;}
+  const key=raw.replace(/[.#$[\]/]/g,"_");
+  const ex=await get(ref(db,"allLinks/"+key));
+  if(ex.val()){errEl.textContent="⚠️ Ye link pehle se save hai! Duplicate nahi.";return;}
+  await set(ref(db,"videos/"+activeVideo.id+"/youtubeLink"),raw);
+  await set(ref(db,"allLinks/"+key),{videoId:activeVideo.id,link:raw,savedAt:Date.now()});
+  sucEl.textContent="✅ Link save ho gaya! 🎉";
+  showToast("🔗 YouTube link saved!");
+  setTimeout(()=>window.closeLinkModal(),1500);
+};
+
+// ── HISTORY ───────────────────────────────────────────────────────────────────
+function renderHistory(videos){
+  const c=document.getElementById("history-container");
+  const keys=Object.keys(videos).filter(k=>videos[k].completed)
+    .sort((a,b)=>(videos[b].completedTs||0)-(videos[a].completedTs||0)).slice(0,20);
+  if(!keys.length){c.innerHTML='<p class="no-hist">Abhi koi completed video nahi 📭</p>';return;}
+  c.innerHTML=keys.map(function(k){
+    const v=videos[k],days=v.daysToComplete||"?";
+    const emoji=days===1?"⚡":days<=2?"✅":"⚠️";
+    return '<div class="hist-card '+(days<=2?"h-full":"h-part")+'">'+
+      '<div class="hist-left"><span class="hist-icon">'+emoji+'</span>'+
+      '<div><div class="hist-date">'+(v.title||"Video")+'</div>'+
+      '<div class="hist-status">'+formatDate(v.completedDate)+" • "+days+' din mein</div>'+
+      (v.youtubeLink?'<a href="'+v.youtubeLink+'" target="_blank" class="hist-link">🔗 Link</a>':'<span class="hist-no-link">No link</span>')+
+      '</div></div>'+
+      '<div class="hist-pct '+(days<=2?"pct-full":"pct-part")+'">'+days+'d</div></div>';
+  }).join("");
+}
+function formatDate(k){
+  if(!k)return"—";
+  const d=new Date(k+"T00:00:00");
+  const dy=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return dy[d.getDay()]+" "+d.getDate()+" "+mo[d.getMonth()];
+}
+
+// ── MESSAGE ROTATION ──────────────────────────────────────────────────────────
+function startMessageRotation(msgs){
+  const el=document.getElementById("sys-msg-text");
+  if(!msgs||!msgs.length)return;
+  msgIndex=0;el.textContent=msgs[0];
+  el.classList.remove("msg-fade-in");void el.offsetWidth;el.classList.add("msg-fade-in");
+  msgInterval=setInterval(function(){
+    el.style.opacity="0";
+    setTimeout(function(){msgIndex=(msgIndex+1)%msgs.length;el.textContent=msgs[msgIndex];el.style.opacity="1";},400);
+  },5000);
+}
+function stopMessageRotation(){if(msgInterval){clearInterval(msgInterval);msgInterval=null;}}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function renderDate(){
+  const d=new Date();
+  const ds=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const ms=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  document.getElementById("date-label").textContent=ds[d.getDay()]+", "+d.getDate()+" "+ms[d.getMonth()]+" "+d.getFullYear();
+}
+function showToast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg;t.classList.add("toast-show");
+  setTimeout(()=>t.classList.remove("toast-show"),3200);
+}
+
+// ── PWA ───────────────────────────────────────────────────────────────────────
+function setupPWA(){
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("/sw.js").catch(e=>console.error("[SW]",e));
+    navigator.serviceWorker.register("/firebase-messaging-sw.js").catch(e=>console.log("[FCM SW]",e));
+  }
+  window.addEventListener("beforeinstallprompt",function(e){
+    e.preventDefault();window._installPrompt=e;
+    document.getElementById("install-btn").style.display="flex";
+  });
+  window.addEventListener("appinstalled",function(){
+    document.getElementById("install-btn").style.display="none";
+    showToast("✅ App install ho gaya!");
+  });
+}
+window.installApp=function(){if(window._installPrompt){window._installPrompt.prompt();window._installPrompt=null;}};
+
+// ── FCM ───────────────────────────────────────────────────────────────────────
+function scheduleSWNotifications(days,completed){
+  if(!("serviceWorker" in navigator))return;
+  navigator.serviceWorker.ready.then(function(reg){
+    if(reg.active)reg.active.postMessage({type:"SCHEDULE_NOTIFICATIONS",payload:{daysSinceStart:days,completed:completed}});
+  });
+}
+async function setupFCM(){
+  if(!messaging)return;
+  if(Notification.permission==="default") document.getElementById("notif-banner").style.display="flex";
+  else if(Notification.permission==="granted") await registerFCMToken();
+  onMessage(messaging,function(payload){
+    showToast("🔔 "+(payload.notification&&payload.notification.title||"Notification")+": "+(payload.notification&&payload.notification.body||""));
+  });
+}
+window.requestNotifPermission=async function(){
+  document.getElementById("notif-banner").style.display="none";
+  const perm=await Notification.requestPermission();
+  if(perm==="granted"){showToast("🔔 Notifications ON!");await registerFCMToken();}
+  else showToast("❌ Notifications off hain.");
+};
+async function registerFCMToken(){
+  if(!messaging||VAPID_KEY==="YOUR_VAPID_KEY_HERE")return;
+  try{
+    const swReg=await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js");
+    const token=await getToken(messaging,{vapidKey:VAPID_KEY,serviceWorkerRegistration:swReg});
+    if(token){
+      const key=token.slice(-20);
+      await set(ref(db,"fcmTokens/"+key),{
+        token:token,userId:currentUser.id,
+        updatedAt:Date.now(),device:navigator.userAgent.slice(0,60)
+      });
+    }
+  }catch(e){console.error("[FCM token]",e);}
+}
+
+// ── DOM READY ─────────────────────────────────────────────────────────────────
+window.addEventListener("DOMContentLoaded",function(){
+  const saved=checkAuth();
+  if(saved&&USERS[saved.id]){currentUser=USERS[saved.id];showApp();}
+  else{
+    document.getElementById("login-screen").style.display="flex";
+    setTimeout(()=>document.getElementById("pw-input").focus(),300);
+  }
+});
+</script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:"Nunito",sans-serif;background:#F8F9FB;min-height:100vh;overscroll-behavior:none;}
+
+/* LOGIN */
+#login-screen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 24px;background:linear-gradient(160deg,#fff5f5 0%,#f0f4ff 50%,#f5fff0 100%);}
+.login-brand{text-align:center;margin-bottom:40px;}
+.login-car{font-size:64px;display:block;margin-bottom:12px;animation:bounce 2s infinite ease-in-out;}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.login-name{font-family:"Syne",sans-serif;font-size:28px;font-weight:800;color:#1a1a2e;letter-spacing:1px;}
+.login-name span{color:#F43F5E;}
+.login-tagline{font-size:11px;color:#9CA3AF;letter-spacing:2px;text-transform:uppercase;margin-top:4px;}
+.login-card{background:white;border-radius:24px;padding:32px 24px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,0.08);}
+.pw-label{font-size:11px;font-weight:700;color:#9CA3AF;letter-spacing:2px;text-transform:uppercase;display:block;margin-bottom:10px;}
+#pw-input{width:100%;background:#F9FAFB;border:2px solid #F3F4F6;border-radius:14px;color:#1a1a2e;font-family:"Nunito",sans-serif;font-size:18px;font-weight:700;padding:14px 18px;outline:none;transition:border-color .2s,box-shadow .2s;letter-spacing:4px;margin-bottom:14px;}
+#pw-input:focus{border-color:#F43F5E;box-shadow:0 0 0 4px rgba(244,63,94,0.1);}
+#pw-input.shake{animation:shake .4s ease;border-color:#F43F5E;}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+.login-btn{width:100%;background:linear-gradient(135deg,#F43F5E,#FB7185);color:white;border:none;border-radius:14px;font-family:"Syne",sans-serif;font-size:16px;font-weight:700;letter-spacing:2px;padding:15px;cursor:pointer;box-shadow:0 8px 24px rgba(244,63,94,0.3);}
+.login-btn:active{transform:scale(0.97);}
+#pw-error{opacity:0;transition:opacity .3s;margin-top:12px;text-align:center;font-size:13px;font-weight:700;color:#F43F5E;}
+
+/* APP */
+#app-screen{display:none;padding-bottom:110px;}
+.sys-msg-bar{background:linear-gradient(135deg,#1a1a2e,#2d2d5e);padding:10px 16px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:200;}
+.sys-msg-icon{font-size:16px;flex-shrink:0;}
+#sys-msg-text{font-size:12px;font-weight:700;color:#E0E7FF;flex:1;opacity:1;transition:opacity .4s;}
+.msg-fade-in{animation:fadeMsg .5s ease;}
+@keyframes fadeMsg{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.notif-banner{display:none;align-items:center;gap:10px;background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border-bottom:1.5px solid #BFDBFE;padding:10px 16px;}
+.notif-banner-text{flex:1;font-size:12px;font-weight:700;color:#1D4ED8;}
+.notif-allow-btn{background:#2563EB;color:white;border:none;border-radius:10px;font-size:11px;font-weight:800;padding:7px 14px;cursor:pointer;}
+#install-btn{display:none;align-items:center;gap:10px;background:linear-gradient(135deg,#F0FFF4,#DCFCE7);border-bottom:1.5px solid #86EFAC;padding:10px 16px;cursor:pointer;}
+.install-text{flex:1;font-size:12px;font-weight:700;color:#15803D;}
+.install-cta{background:#16A34A;color:white;border:none;border-radius:10px;font-size:11px;font-weight:800;padding:7px 14px;}
+.header{background:white;padding:14px 20px;box-shadow:0 2px 16px rgba(0,0,0,0.06);}
+.header-row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.brand-row{display:flex;align-items:center;gap:10px;}
+.brand-icon{width:42px;height:42px;background:linear-gradient(135deg,#F43F5E,#FB923C);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 12px rgba(244,63,94,0.3);}
+.brand-name{font-family:"Syne",sans-serif;font-size:18px;font-weight:800;color:#1a1a2e;line-height:1;}
+.brand-date{font-size:11px;color:#9CA3AF;margin-top:2px;font-weight:600;}
+.header-actions{display:flex;gap:8px;align-items:center;}
+.logout-btn{background:#FEF2F2;border:1.5px solid #FECACA;border-radius:10px;color:#F43F5E;font-size:11px;font-weight:700;padding:6px 12px;cursor:pointer;}
+.progress-section{display:flex;align-items:center;gap:14px;}
+.ring-wrap{position:relative;width:56px;height:56px;flex-shrink:0;}
+.ring-wrap svg{transform:rotate(-90deg);}
+.ring-bg{fill:none;stroke:#F3F4F6;stroke-width:6;}
+#ring-circle{fill:none;stroke:#F43F5E;stroke-width:6;stroke-linecap:round;stroke-dasharray:226;stroke-dashoffset:226;transition:stroke-dashoffset .6s ease,stroke .4s;}
+.ring-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#1a1a2e;}
+.progress-right{flex:1;}
+.progress-counts{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+.progress-counts .big{font-family:"Syne",sans-serif;font-size:22px;font-weight:800;color:#1a1a2e;}
+.progress-counts .big span{color:#9CA3AF;font-size:14px;font-weight:600;}
+#pct-text{font-size:13px;font-weight:800;color:#F43F5E;}
+#seg-bar{display:flex;gap:4px;height:8px;border-radius:99px;overflow:hidden;}
+.seg{flex:1;border-radius:99px;transition:background .4s,box-shadow .4s;}
+
+/* Deadline */
+.deadline-banner{display:none;align-items:center;gap:10px;margin:10px 16px 0;padding:11px 14px;border-radius:14px;animation:popIn .35s ease;}
+.deadline-banner.safe{background:#F0FFF4;border:1.5px solid #86EFAC;}
+.deadline-banner.warning{background:#FFFBEB;border:1.5px solid #FCD34D;}
+.deadline-banner.overdue{background:#FFF1F2;border:1.5px solid #FDA4AF;animation:pulseRed 2s infinite;}
+@keyframes pulseRed{0%,100%{box-shadow:none}50%{box-shadow:0 0 12px rgba(244,63,94,0.25)}}
+.dl-icon{font-size:22px;flex-shrink:0;}
+.dl-title{font-size:13px;font-weight:800;}
+.deadline-banner.safe .dl-title{color:#15803D;}
+.deadline-banner.warning .dl-title{color:#D97706;}
+.deadline-banner.overdue .dl-title{color:#BE123C;}
+.dl-sub{font-size:11px;font-weight:600;color:#6B7280;margin-top:1px;}
+.dl-days{margin-left:auto;font-family:"Syne",sans-serif;font-size:14px;font-weight:800;padding:4px 10px;border-radius:99px;flex-shrink:0;}
+.safe-days{background:#DCFCE7;color:#15803D;}
+.warning-days{background:#FEF3C7;color:#D97706;}
+.overdue-days{background:#FFE4E6;color:#BE123C;}
+
+/* All done */
+#all-done{display:none;align-items:center;justify-content:center;gap:10px;background:linear-gradient(135deg,#f0fff4,#dcfce7);border:1.5px solid #86EFAC;border-radius:16px;margin:12px 16px 0;padding:14px 20px;font-size:14px;font-weight:800;color:#15803D;animation:popIn .4s ease;}
+@keyframes popIn{0%{transform:scale(0.92);opacity:0}100%{transform:scale(1);opacity:1}}
+
+/* Video title */
+.video-title-row{margin:10px 16px 0;}
+#video-title-label{font-family:"Syne",sans-serif;font-size:13px;font-weight:800;color:#4B5563;background:#F3F4F6;border-radius:99px;padding:4px 12px;}
+
+/* No video */
+#no-video-section{display:none;flex-direction:column;align-items:center;justify-content:center;padding:50px 24px 30px;gap:20px;}
+.no-vid-icon{font-size:72px;animation:bounce 2.5s infinite ease-in-out;}
+.no-vid-title{font-family:"Syne",sans-serif;font-size:22px;font-weight:800;color:#1a1a2e;text-align:center;}
+.no-vid-sub{font-size:14px;color:#9CA3AF;font-weight:600;text-align:center;}
+.start-video-btn{background:linear-gradient(135deg,#F43F5E,#FB7185);color:white;border:none;border-radius:18px;font-family:"Syne",sans-serif;font-size:17px;font-weight:800;padding:17px 36px;cursor:pointer;letter-spacing:1px;box-shadow:0 10px 30px rgba(244,63,94,0.35);animation:pulseBtn 2s infinite;}
+@keyframes pulseBtn{0%,100%{box-shadow:0 10px 30px rgba(244,63,94,0.35)}50%{box-shadow:0 10px 40px rgba(244,63,94,0.55)}}
+
+/* Section */
+.section-head{padding:18px 20px 10px;display:flex;align-items:center;gap:8px;}
+.section-head-title{font-family:"Syne",sans-serif;font-size:14px;font-weight:800;color:#1a1a2e;letter-spacing:.5px;}
+.section-head-pill{background:#F43F5E;color:white;font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;}
+
+/* Tasks */
+#task-container{padding:0 16px;display:flex;flex-direction:column;gap:10px;}
+.task-card{background:white;border-radius:18px;display:flex;align-items:center;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);border:1.5px solid transparent;animation:slideIn .4s ease both;transition:transform .15s;}
+@keyframes slideIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.task-card:active{transform:scale(0.985);}
+.task-card.done{background:#FAFAFA;border-color:#E5E7EB;box-shadow:none;}
+.task-color-bar{width:5px;align-self:stretch;background:var(--tc);flex-shrink:0;transition:background .3s;}
+.task-card.done .task-color-bar{background:#D1FAE5;}
+.task-body{flex:1;padding:13px 12px;}
+.task-top-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.task-badge{display:flex;align-items:center;gap:5px;border-radius:8px;padding:3px 8px 3px 4px;font-size:11px;font-weight:800;transition:all .3s;}
+.task-emoji{font-size:14px;} .task-step{font-size:11px;}
+.task-sub{font-size:11px;font-weight:700;letter-spacing:.5px;transition:color .3s;}
+.task-label{font-size:15px;font-weight:800;color:#1a1a2e;line-height:1.2;}
+.done-label{color:#D1D5DB;text-decoration:line-through;}
+.task-time{font-size:10px;color:#10B981;font-weight:700;margin-top:3px;letter-spacing:.3px;}
+.tick-btn{width:44px;height:44px;border-radius:12px;margin-right:14px;font-size:20px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s;flex-shrink:0;}
+.tick-btn:active{transform:scale(0.82);}
+.tick-done{animation:tickPop .3s ease;}
+@keyframes tickPop{0%{transform:scale(0.7)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
+
+/* Divider */
+.section-divider{height:8px;background:#F3F4F6;margin-top:24px;}
+
+/* History */
+#history-container{padding:0 16px;display:flex;flex-direction:column;gap:8px;}
+.hist-card{display:flex;align-items:flex-start;justify-content:space-between;background:white;border-radius:14px;padding:13px 14px;box-shadow:0 1px 6px rgba(0,0,0,0.05);border:1.5px solid transparent;}
+.h-full{border-color:#BBF7D0;} .h-part{border-color:#FED7AA;}
+.hist-left{display:flex;align-items:flex-start;gap:10px;}
+.hist-icon{font-size:20px;margin-top:1px;}
+.hist-date{font-size:13px;font-weight:800;color:#1a1a2e;}
+.hist-status{font-size:11px;color:#9CA3AF;font-weight:600;margin-top:1px;}
+.hist-link{display:inline-block;margin-top:5px;font-size:11px;font-weight:800;color:#3B82F6;text-decoration:none;background:#EFF6FF;padding:2px 8px;border-radius:6px;}
+.hist-no-link{display:inline-block;margin-top:5px;font-size:11px;color:#D1D5DB;font-weight:600;}
+.hist-pct{font-family:"Syne",sans-serif;font-size:15px;font-weight:800;padding:4px 10px;border-radius:8px;flex-shrink:0;}
+.pct-full{background:#DCFCE7;color:#15803D;} .pct-part{background:#FEF3C7;color:#D97706;}
+.no-hist{color:#9CA3AF;font-size:13px;font-weight:600;padding:10px 0;}
+
+/* ALARM MODAL */
+#alarm-modal{display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:24px;}
+.alarm-card{background:white;border-radius:28px;padding:32px 24px;width:100%;max-width:340px;text-align:center;animation:alarmPop .45s cubic-bezier(0.175,0.885,0.32,1.275);box-shadow:0 0 0 3px #F43F5E,0 30px 80px rgba(244,63,94,0.4);}
+@keyframes alarmPop{from{transform:scale(0.6) rotate(-5deg);opacity:0}to{transform:scale(1) rotate(0);opacity:1}}
+.alarm-ring{font-size:64px;display:block;margin-bottom:14px;animation:ringShake 0.35s infinite;}
+@keyframes ringShake{0%,100%{transform:rotate(-10deg) scale(1.05)}50%{transform:rotate(10deg) scale(1.1)}}
+#alarm-title{font-family:"Syne",sans-serif;font-size:22px;font-weight:800;color:#1a1a2e;margin-bottom:8px;}
+#alarm-body{font-size:14px;color:#6B7280;font-weight:600;margin-bottom:16px;line-height:1.5;}
+.alarm-stats{background:#FFF1F2;border-radius:14px;padding:12px 16px;margin-bottom:20px;border:1.5px solid #FDA4AF;}
+#alarm-pending{font-family:"Syne",sans-serif;font-size:18px;font-weight:800;color:#BE123C;}
+#alarm-next{font-size:12px;color:#9CA3AF;font-weight:600;margin-top:5px;}
+.alarm-btns{display:flex;flex-direction:column;gap:10px;}
+#alarm-btn1{background:linear-gradient(135deg,#F43F5E,#FB7185);color:white;border:none;border-radius:14px;font-family:"Syne",sans-serif;font-size:13px;font-weight:800;padding:15px 16px;cursor:pointer;box-shadow:0 6px 20px rgba(244,63,94,0.35);letter-spacing:.5px;}
+#alarm-btn2{background:#F3F4F6;color:#374151;border:none;border-radius:14px;font-family:"Syne",sans-serif;font-size:13px;font-weight:800;padding:15px 16px;cursor:pointer;}
+#alarm-btn1:active,#alarm-btn2:active{transform:scale(0.97);}
+
+/* Confetti */
+#confetti-canvas{display:none;position:fixed;inset:0;z-index:900;pointer-events:none;}
+
+/* Reward */
+#reward-overlay{display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:24px;}
+.reward-in{animation:rewardIn .5s cubic-bezier(0.175,0.885,0.32,1.275);}
+@keyframes rewardIn{from{transform:scale(0.7);opacity:0}to{transform:scale(1);opacity:1}}
+.reward-card{background:white;border-radius:28px;padding:36px 28px;text-align:center;width:100%;max-width:340px;box-shadow:0 30px 80px rgba(0,0,0,0.2);}
+.reward-trophy{font-size:72px;margin-bottom:8px;animation:trophySpin 1s ease;display:block;}
+@keyframes trophySpin{from{transform:rotateY(-90deg);opacity:0}to{transform:rotateY(0);opacity:1}}
+.reward-heading{font-family:"Syne",sans-serif;font-size:26px;font-weight:800;color:#1a1a2e;margin-bottom:6px;}
+.reward-heading span{color:#F43F5E;}
+.reward-sub{font-size:14px;color:#6B7280;font-weight:600;margin-bottom:6px;}
+.reward-days-badge{display:inline-block;background:linear-gradient(135deg,#F43F5E,#FB7185);color:white;font-family:"Syne",sans-serif;font-size:16px;font-weight:800;padding:8px 20px;border-radius:99px;margin:8px 0 20px;box-shadow:0 6px 20px rgba(244,63,94,0.35);}
+.reward-msg{font-size:13px;color:#9CA3AF;font-weight:600;background:#F9FAFB;border-radius:12px;padding:10px 16px;margin-bottom:20px;}
+.reward-btn{width:100%;background:linear-gradient(135deg,#F43F5E,#FB7185);color:white;border:none;border-radius:16px;font-family:"Syne",sans-serif;font-size:15px;font-weight:800;padding:15px;cursor:pointer;box-shadow:0 8px 24px rgba(244,63,94,0.3);}
+
+/* Link modal */
+#link-modal{display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center;}
+.link-sheet{background:white;border-radius:28px 28px 0 0;padding:24px 22px 36px;width:100%;max-width:480px;animation:slideUp .35s ease;}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.link-handle{width:36px;height:4px;background:#E5E7EB;border-radius:99px;margin:0 auto 18px;}
+.link-title{font-family:"Syne",sans-serif;font-size:20px;font-weight:800;color:#1a1a2e;margin-bottom:4px;}
+.link-desc{font-size:13px;color:#9CA3AF;font-weight:600;margin-bottom:18px;}
+#link-input{width:100%;background:#F9FAFB;border:2px solid #F3F4F6;border-radius:14px;color:#1a1a2e;font-family:"Nunito",sans-serif;font-size:14px;font-weight:700;padding:14px 18px;outline:none;margin-bottom:10px;}
+#link-input:focus{border-color:#3B82F6;box-shadow:0 0 0 4px rgba(59,130,246,0.1);}
+#link-error{font-size:12px;font-weight:700;color:#F43F5E;min-height:18px;margin-bottom:6px;}
+#link-success{font-size:12px;font-weight:700;color:#10B981;min-height:18px;margin-bottom:6px;}
+.link-btns{display:flex;gap:10px;}
+.link-save-btn{flex:1;background:linear-gradient(135deg,#3B82F6,#60A5FA);color:white;border:none;border-radius:14px;font-family:"Syne",sans-serif;font-size:14px;font-weight:800;padding:14px;cursor:pointer;box-shadow:0 6px 18px rgba(59,130,246,0.3);}
+.link-skip-btn{background:#F3F4F6;color:#6B7280;border:none;border-radius:14px;font-size:13px;font-weight:800;padding:14px 20px;cursor:pointer;}
+
+/* Toast */
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:#1a1a2e;color:white;font-size:13px;font-weight:700;padding:12px 20px;border-radius:99px;box-shadow:0 8px 24px rgba(0,0,0,0.2);opacity:0;transition:opacity .3s,transform .3s;white-space:nowrap;z-index:3000;pointer-events:none;max-width:calc(100vw - 40px);text-overflow:ellipsis;overflow:hidden;}
+#toast.toast-show{opacity:1;transform:translateX(-50%) translateY(0);}
+.reset-note{text-align:center;font-size:11px;font-weight:700;color:#D1D5DB;letter-spacing:1px;padding:20px 20px 0;}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-brand">
+    <span class="login-car">🚗</span>
+    <div class="login-name">Mr <span>Car</span> Lover</div>
+    <div class="login-tagline">Video Workflow Tracker</div>
+  </div>
+  <div class="login-card">
+    <label class="pw-label">🔐 Password Dalo</label>
+    <input type="password" id="pw-input" placeholder="••••••••" onkeydown="window.handleKey(event)" autocomplete="off"/>
+    <button class="login-btn" onclick="window.submitPassword()">ENTER ➜</button>
+    <div id="pw-error">❌ Galat password hai!</div>
+  </div>
+</div>
+
+<div id="app-screen">
+  <div class="sys-msg-bar"><span class="sys-msg-icon">🤖</span><span id="sys-msg-text">Loading...</span></div>
+  <div class="notif-banner" id="notif-banner"><span>🔔</span><span class="notif-banner-text">Notifications ON karo — reminders milenge!</span><button class="notif-allow-btn" onclick="window.requestNotifPermission()">Allow 🔔</button></div>
+  <div id="install-btn" onclick="window.installApp()"><span>📲</span><span class="install-text">App install karo — Home screen pe!</span><button class="install-cta">Install</button></div>
+
+  <div class="header">
+    <div class="header-row1">
+      <div class="brand-row"><div class="brand-icon">🚗</div><div><div class="brand-name">Mr Car Lover</div><div class="brand-date" id="date-label"></div></div></div>
+      <div class="header-actions"><span id="user-badge">👤</span><button class="logout-btn" onclick="window.logout()">Logout</button></div>
+    </div>
+    <div class="progress-section">
+      <div class="ring-wrap"><svg width="56" height="56" viewBox="0 0 80 80"><circle class="ring-bg" cx="40" cy="40" r="36"/><circle id="ring-circle" cx="40" cy="40" r="36"/></svg><div class="ring-label" id="pct-text">0%</div></div>
+      <div class="progress-right"><div class="progress-counts"><div class="big"><span id="done-count">0</span><span>/8 kaam</span></div><span id="pct-text-2" style="font-size:13px;font-weight:800;color:#F43F5E;"></span></div><div id="seg-bar"></div></div>
+    </div>
+  </div>
+
+  <div class="video-title-row"><span id="video-title-label"></span></div>
+  <div id="deadline-banner" class="deadline-banner"></div>
+  <div id="all-done">🎉 Poora kaam ho gaya! Superstar! 🔥</div>
+
+  <div id="no-video-section">
+    <span class="no-vid-icon">🎬</span>
+    <div class="no-vid-title">Koi active video nahi!</div>
+    <div class="no-vid-sub">Nayi video shuru karo aur sab steps track karo</div>
+    <button class="start-video-btn" onclick="window.startNewVideo()">➕ Nayi Video Shuru Karo</button>
+  </div>
+
+  <div id="active-video-section" style="display:none">
+    <div class="section-head"><div class="section-head-title">Aaj Ka Workflow</div><div class="section-head-pill">8 Steps</div></div>
+    <div id="task-container"></div>
+  </div>
+
+  <div class="section-divider"></div>
+  <div class="section-head"><div class="section-head-title">Completed Videos</div></div>
+  <div id="history-container"><p class="no-hist">Loading...</p></div>
+  <div class="reset-note">Made with ❤️ for Mr Car Lover 🚗</div>
+</div>
+
+<div id="alarm-modal">
+  <div class="alarm-card">
+    <span class="alarm-ring">⏰</span>
+    <div id="alarm-title">Kaam Karo!</div>
+    <div id="alarm-body">Kaafi der ho gayi...</div>
+    <div class="alarm-stats"><div id="alarm-pending">4 kaam baaki</div><div id="alarm-next"></div></div>
+    <div class="alarm-btns">
+      <button id="alarm-btn1" onclick="window.alarmOption1()">Option 1</button>
+      <button id="alarm-btn2" onclick="window.alarmOption2()">Option 2</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="confetti-canvas"></canvas>
+
+<div id="reward-overlay">
+  <div class="reward-card">
+    <span class="reward-trophy">🏆</span>
+    <div class="reward-heading">YOU DID IT! <span>🔥</span></div>
+    <div class="reward-sub" id="reward-title">Video complete hua!</div>
+    <div class="reward-days-badge">⚡ <span id="reward-days">0</span> Din Mein Complete!</div>
+    <div class="reward-msg">🌟 Channel grow ho rha hai! Ekdum superstar ho tum! 💪</div>
+    <button class="reward-btn" onclick="window.closeReward()">🔗 YouTube Link Daalo →</button>
+  </div>
+</div>
+
+<div id="link-modal">
+  <div class="link-sheet">
+    <div class="link-handle"></div>
+    <div class="link-title">📎 YouTube Link Daalo</div>
+    <div class="link-desc">Video publish hone ke baad uska link yahan daalo</div>
+    <input type="url" id="link-input" placeholder="https://youtube.com/shorts/..." inputmode="url" autocomplete="off"/>
+    <div id="link-error"></div>
+    <div id="link-success"></div>
+    <div class="link-btns">
+      <button class="link-save-btn" onclick="window.saveYouTubeLink()">✅ Save Karo</button>
+      <button class="link-skip-btn" onclick="window.closeLinkModal()">Skip</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+</body>
+</html>
